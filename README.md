@@ -1,6 +1,8 @@
-# Automatic Seismic to Well Tie
+# Fork of Automatic Seismic to Well Tie
 
 Author: *Valentin Tschannen* - Fraunhofer ITWM, Germany.
+
+**This fork aims to rewrite the documentation with the aim of developing a better understandment of the original codebase**
 
 This package aims to provide basic utilities to automate the seismic to well tie process.
 Part of the package is dedicated to the creation and training of a neural network to perform wavelet extraction. It also contains utilities to create synthetic training data.
