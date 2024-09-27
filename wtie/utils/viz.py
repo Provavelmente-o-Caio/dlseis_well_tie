@@ -597,10 +597,7 @@ def plot_logset(logset: grid.LogSet,
     is_vs = logset.vs is not None
 
     if fig_axes is None:
-        if is_vs:
-            fig, axes = plt.subplots(1, 3, figsize=figsize)
-        else:
-            fig, axes = plt.subplots(1, 2, figsize=figsize)
+        fig, axes = plt.subplots(1, len(list(logset.Logs.items())), figsize=figsize)
     else:
         fig, axes = fig_axes
 
@@ -621,8 +618,23 @@ def plot_logset(logset: grid.LogSet,
     if is_vs:
         axes[1].set_xlabel("Vs [km/s]")
         axes[2].set_xlabel("Rho [g/cm³]")
+        remaining_logs = dict(list(logset.Logs.items())[3:])
+        counter = 3
     else:
         axes[1].set_xlabel("Rho [g/cm³]")
+        remaining_logs = dict(list(logset.Logs.items())[2:])
+        counter = 2
+
+
+    for log in remaining_logs.values():
+        axes[counter].plot(log.values, logset.basis, **plot_params)
+        label = ""
+        if log._name is not None:
+            label += log._name
+        if log.unit is not None:
+            label += " [" + log.unit + "]"
+        axes[counter].set_xlabel(label)
+        counter += 1
 
     for ax in axes:
         ax.set_ylim((logset.basis[0], logset.basis[-1]))

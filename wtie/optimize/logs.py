@@ -85,9 +85,6 @@ def filter_logs(logset: grid.LogSet,
 
     return grid.LogSet(new_logs)
 
-
-
-
 def block_logs(logset: grid.LogSet,
                threshold_perc: float,
                maximum_length: int=None,

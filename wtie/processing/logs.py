@@ -5,7 +5,7 @@ import pandas as pd
 
 from numba import njit
 
-from scipy.signal import medfilt
+from scipy.signal import medfilt 
 #from scipy.ndimage.filters import gaussian_filter
 from scipy.ndimage import gaussian_filter1d
 #from scipy.stats import hmean
@@ -13,22 +13,25 @@ from scipy.ndimage import gaussian_filter1d
 
 
 
-def despike(data: np.ndarray, median_size: int=31, threshold: float=1.,
-            xmin_clip:float=None, xmax_clip:float=None) -> np.ndarray:
-
+def despike(data: np.ndarray, median_size: int=31, threshold: float=1., xmin_clip:float=None, xmax_clip:float=None) -> np.ndarray:
+    # This function removes any outliers from the data
+    # This is done by using a median filter in an area of median_size
+    # If the data deviates too much from the median value of its surroudings it is replaceded with NaN
     data = np.copy(data)
     med = medfilt(np.copy(data),median_size)
     noise = np.abs(data - med)
     threshold = threshold * np.nanstd(noise)
     mask = np.abs(noise) > threshold
     data[mask] = np.nan
+
+    # These are optional parameters that remove any data above or below an specified value
     if xmin_clip: data[data<xmin_clip] = np.nan
     if xmax_clip: data[data>xmax_clip] = np.nan
+
     return data
 
 
 def interpolate_nans(x: np.ndarray, method: str='linear', **kwargs) -> np.ndarray:
-
     interp_r = np.array(pd.Series(x).interpolate(method=method,**kwargs))
     interp_l = np.array(pd.Series(interp_r[::-1]).interpolate(method=method,**kwargs))
     return interp_l[::-1]
