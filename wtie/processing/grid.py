@@ -1182,7 +1182,9 @@ def upsample_trace(trace: BaseTrace,
     #new_length = int(len(trace) * new_sampling / current_sr)
 
     sincM = np.tile(new_basis, (len(trace), 1)) - np.tile(trace.basis[:, np.newaxis],
-                                                          (1, len(new_basis)))
+    print("sincM")                                                          (1, len(new_basis)))
+    print(sincM)
+    print("aaaaaa")
     new_signal = np.dot(trace.values, np.sinc(sincM / current_sr))
     return type(trace)(values=new_signal, basis=new_basis,
                        basis_type=_inverted_name(trace.basis_type),

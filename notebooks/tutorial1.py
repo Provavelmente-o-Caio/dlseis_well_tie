@@ -7,7 +7,7 @@ from pathlib import Path
 from pprint import pprint
 
 from wtie import grid, viz
-from wtie.processing.logs import interpolate_nans
+from wtie.processing.logs import interpolate_nans, despike
 
 import matplotlib.pyplot as plt
 
@@ -29,13 +29,15 @@ def import_logs(file_path: str) -> grid.LogSet:
 
     log_dict['Vp'] = grid.Log(las_logs.LFP_VP.values, las_logs.LFP_VP.index, 'md', name='Vp')
     log_dict['Vs'] = grid.Log(las_logs.LFP_VS.values, las_logs.LFP_VS.index, 'md', name='Vs')
-    
-    # Density contains some NaNs, I fill them with linear interpolation.
-    log_dict['Rho'] = grid.Log(interpolate_nans(las_logs.LFP_RHOB.values),
-                    las_logs.LFP_RHOB.index, 'md', name='Rho')
 
-    log_dict['GR'] = grid.Log(interpolate_nans(las_logs.LFP_GR.values), las_logs.LFP_VP.index, 'md')
-    log_dict['Cali'] = grid.Log(las_logs.LFP_CALI.values, las_logs.LFP_VP.index, 'md')
+    # Density contains some NaNs, I fill them with linear interpolation.
+    log_dict['Rho'] = grid.Log(interpolate_nans(las_logs.LFP_RHOB.values), las_logs.LFP_RHOB.index, 'md', name='Rho')
+
+    # The gamma ray has an ouylying value, probably best to remove it
+    log_dict['GR'] = grid.Log(despike(interpolate_nans(las_logs.LFP_GR.values)), las_logs.LFP_GR.index, 'md', name='GR', unit="API")
+
+
+    log_dict['Cali'] = grid.Log(las_logs.LFP_CALI.values, las_logs.LFP_CALI.index, 'md', name='Cali')
 
     return grid.LogSet(log_dict)
 
@@ -126,10 +128,9 @@ fig,ax = plt.subplots()
 ax.plot(basis, vp)
 
 Vp = grid.Log(las_logs.LFP_VP.values, las_logs.LFP_VP.index, 'md', name='Vp')
-viz.plot_trace(Vp);
+# viz.plot_trace(Vp);
 
 logset_md = import_logs(logs_path) # md is for measured depth
-print(logset_md)
 
 viz.plot_logset(logset_md);
 
@@ -144,8 +145,8 @@ with segyio.open(seis_path, 'r') as f:
 
 seismic = import_seismic(seis_path)
 gather = import_prestack_seismic(seis_path)
-viz.plot_trace(seismic)
-viz.plot_prestack_trace_as_pixels(gather, figsize=(7,9));
+# viz.plot_trace(seismic)
+# viz.plot_prestack_trace_as_pixels(gather, figsize=(7,9));
 
 # WELL TRAJECTORY
 
@@ -153,7 +154,7 @@ print(grid.WellPath.__doc__)
 print(grid.WellPath.__init__.__doc__)
 
 wellpath = import_well_path(trajectory_path)
-viz.plot_wellpath(wellpath);
+# viz.plot_wellpath(wellpath);
 
 print(grid.TimeDepthTable.__doc__)
 print(grid.TimeDepthTable.__init__.__doc__)
@@ -163,6 +164,6 @@ print(grid.TimeDepthTable.__doc__)
 print(grid.TimeDepthTable.__init__.__doc__)
 
 td_table = import_time_depth_table(table_path)
-viz.plot_td_table(td_table);
+# viz.plot_td_table(td_table);
 
 plt.show()

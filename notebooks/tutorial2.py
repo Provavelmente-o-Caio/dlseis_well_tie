@@ -18,7 +18,7 @@ folder = Path('data/tutorial')
 
 # inputs is a class that stores the useful input data to perform a well tie
 inputs = tutorial.load_poseidon_data(folder) 
-pprint(inputs.__dict__)
+# pprint(inputs.__dict__)
 inputs.plot_inputs(figsize=(7.5,3.5));
 
 # Load neural network to perform wavelet extraction
@@ -56,7 +56,9 @@ r0 = tie.compute_reflectivity(logset_twt)
 viz.plot_reflectivity(r0)
 
 # Interpolate seismic and find intersection with reflectivity
+print("resampling")
 seismic_sinc = tie.resample_seismic(inputs.seismic, wavelet_extractor.expected_sampling)
+print("done resempling")
 seis_match, r0_match = tie.match_seismic_and_reflectivity(seismic_sinc, r0)
 
 viz.plot_seismic_and_reflectivity(seis_match, r0_match, normalize=True, title='Real seismic and reflectivity')
@@ -79,7 +81,7 @@ viz.plot_seismics(seis_match,
 xcorr = similarity.traces_normalized_xcorr(seis_match, synth_seismic)
 xcorr = grid.upsample_trace(xcorr, 0.001)
 dxcorr = similarity.dynamic_normalized_xcorr(seis_match, synth_seismic)
-print("Max coeff of %.2f at a lag of %.3f sec" % (xcorr.R, xcorr.lag))
+# print("Max coeff of %.2f at a lag of %.3f sec" % (xcorr.R, xcorr.lag))
 
 # Visualize results
 fig, axes = viz.plot_tie_window(logset_twt,

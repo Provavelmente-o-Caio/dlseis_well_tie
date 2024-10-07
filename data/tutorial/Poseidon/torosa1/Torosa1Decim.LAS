@@ -30,8 +30,8 @@
  RHOZ    .g/cm3                         :   Formation Density
  HTNP    .PU                            :   Thermal Neutron Porosity
  HDAR    .IN                            :   Hole Diameter from Area
- BATC    .USEC/F                        :   Compressional Sonic
- DTS     .US/FT                         :   Shear Slowness 1
+ BATC    .USEC/F                        :   Compressional Sonic --> DTC
+ DTS     .US/FT                         :   Shear Slowness 1 --> DTC
 #
 # Curve              Start        Stop     Minimum     Maximum
 # ------------------------------------------------------------
@@ -63,9 +63,9 @@
 # HOLE AND CASING DATA:
 # 	Hole 	Hole	Casing	Casing 	Weight	Grade	Joints	Cement 	TOC
 # 	Size	Depth	Size	Depth	lb/ft
-# 	36”	557.5m	30”	555.8m	310	X-52	3	1342 sx G at SG 1.9 	Seafloor
-# 	12.25”	3533m	9 5/8”	3526.7m	47	L-80	242	325 sx HTB at SG 1.9	
-# 	8.5”	4685m
+# 	36ï¿½	557.5m	30ï¿½	555.8m	310	X-52	3	1342 sx G at SG 1.9 	Seafloor
+# 	12.25ï¿½	3533m	9 5/8ï¿½	3526.7m	47	L-80	242	325 sx HTB at SG 1.9	
+# 	8.5ï¿½	4685m
 # #
 # TEMPERATURES:	See also temperatures reported on MDT sampling
 # 	Logger's Depth	Temp	Log Type	Time since circ	Circ Time

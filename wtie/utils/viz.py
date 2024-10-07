@@ -625,16 +625,16 @@ def plot_logset(logset: grid.LogSet,
         remaining_logs = dict(list(logset.Logs.items())[2:])
         counter = 2
 
-
-    for log in remaining_logs.values():
-        axes[counter].plot(log.values, logset.basis, **plot_params)
-        label = ""
-        if log._name is not None:
-            label += log._name
-        if log.unit is not None:
-            label += " [" + log.unit + "]"
-        axes[counter].set_xlabel(label)
-        counter += 1
+    if fig_axes is None:
+        for log in remaining_logs.values():
+            axes[counter].plot(log.values, logset.basis, **plot_params)
+            label = ""
+            if log.name is not None:
+                label += log.name
+            if log.unit is not None:
+                label += " [" + log.unit + "]"
+            axes[counter].set_xlabel(label)
+            counter += 1
 
     for ax in axes:
         ax.set_ylim((logset.basis[0], logset.basis[-1]))
