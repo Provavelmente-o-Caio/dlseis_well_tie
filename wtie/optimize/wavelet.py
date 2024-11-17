@@ -82,6 +82,7 @@ def compute_expected_wavelet(
     zero_phasing: bool = False,
 ) -> grid.Wavelet:
 
+    # ensures the data is within a acceptable range
     assert np.allclose(seismic.basis, reflectivity.basis, rtol=1e-3)
     assert np.allclose(seismic.sampling_rate, evaluator.expected_sampling, rtol=1e-3)
 

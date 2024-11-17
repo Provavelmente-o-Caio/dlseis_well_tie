@@ -1,4 +1,6 @@
 """Some functions to perform auto well-tie."""
+import inspect
+
 from tqdm import tqdm
 from time import sleep
 
@@ -11,6 +13,9 @@ from wtie.optimize import similarity as _similarity
 from wtie.optimize import warping as _warping
 from wtie.optimize import optimizer as _optimizer
 from wtie.optimize import tie as _tie
+
+import gc
+import torch
 
 
 # Some constants affecting the workflow
@@ -149,6 +154,14 @@ def tie_v1(inputs: InputSet,
     similarity_std = search_params.get('similarity_std', 0.01)
     random_ratio = search_params.get('random_ratio', 0.6)
 
+    print("stage 0")
+    for obj in gc.get_objects():
+        if torch.is_tensor(obj):
+            print(f"Tensor Details:\n"
+                  f"- Size: {obj.size()}\n"
+                  f"- Device: {obj.device}\n"
+                  f"- Type: {type(obj)}\n")
+
     ax_client = _search_best_params_v1(inputs,
                                        wavelet_extractor,
                                        modeler,
@@ -158,6 +171,13 @@ def tie_v1(inputs: InputSet,
                                        similarity_std)
     best_params = ax_client.get_best_parameters()[0]
 
+    print("stage 1")
+    for obj in gc.get_objects():
+        if torch.is_tensor(obj):
+            print(f"Tensor Details:\n"
+                  f"- Size: {obj.size()}\n"
+                  f"- Device: {obj.device}\n"
+                  f"- Type: {type(obj)}\n")
     # Intermediate tie
     shifted_table = grid.TimeDepthTable.t_bulk_shift(inputs.table,
                                                      best_params['table_t_shift']
@@ -202,6 +222,13 @@ def tie_v1(inputs: InputSet,
     else:
         outputs_tmp2 = outputs_tmp1
 
+    print("stage 2")
+    for obj in gc.get_objects():
+        if torch.is_tensor(obj):
+            print(f"Tensor Details:\n"
+                  f"- Size: {obj.size()}\n"
+                  f"- Device: {obj.device}\n"
+                  f"- Type: {type(obj)}\n")
     # Final wavelet
     wavelet = _tie.compute_wavelet(outputs_tmp2.seismic,
                                    outputs_tmp2.r,
@@ -212,6 +239,13 @@ def tie_v1(inputs: InputSet,
                                    expected_value=False,
                                    scaling_params=wavelet_scaling_params)
 
+    print("stage 3")
+    for obj in gc.get_objects():
+        if torch.is_tensor(obj):
+            print(f"Tensor Details:\n"
+                  f"- Size: {obj.size()}\n"
+                  f"- Device: {obj.device}\n"
+                  f"- Type: {type(obj)}\n")
     # Final synthetic
     synth_seismic = _tie.compute_synthetic_seismic(
         modeler, wavelet, outputs_tmp2.r)

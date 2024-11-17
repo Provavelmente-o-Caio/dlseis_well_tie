@@ -1118,7 +1118,8 @@ def downsample_trace(trace: BaseTrace,
 
     basis_resamp = trace.basis[::div_factor]
 
-    return type(trace)(values=signal_resamp, basis=basis_resamp,
+    return type(trace)(values=signal_resamp,
+                       basis=basis_resamp,
                        basis_type=_inverted_name(trace.basis_type),
                        name=trace.name)
 
@@ -1176,17 +1177,19 @@ def upsample_trace(trace: BaseTrace,
     """
     # Find the period
     assert new_sampling < trace.sampling_rate
+    # gets the current sampling rate
     current_sr = trace.sampling_rate
 
+    # Defines a new basis, begging and ending at the same point as the orignal basis, however with the new sampling rate
     new_basis = np.arange(trace.basis[0], trace.basis[-1], step=new_sampling)
     #new_length = int(len(trace) * new_sampling / current_sr)
 
-    sincM = np.tile(new_basis, (len(trace), 1)) - np.tile(trace.basis[:, np.newaxis],
-    print("sincM")                                                          (1, len(new_basis)))
-    print(sincM)
-    print("aaaaaa")
+    # Create a matrix with the distance of each point to all the other points from the old basis
+    sincM = np.tile(new_basis, (len(trace), 1)) - np.tile(trace.basis[:, np.newaxis], (1, len(new_basis)))
+    # reconstructs the signal based with the whittaker-shannon equation
     new_signal = np.dot(trace.values, np.sinc(sincM / current_sr))
-    return type(trace)(values=new_signal, basis=new_basis,
+    return type(trace)(values=new_signal,
+                       basis=new_basis,
                        basis_type=_inverted_name(trace.basis_type),
                        name=trace.name)
 

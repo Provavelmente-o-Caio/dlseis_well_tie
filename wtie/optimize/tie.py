@@ -26,8 +26,7 @@ FINE_DT: float = 0.001
 
 def resample_seismic(seismic: grid.seismic_t, dt: float):
     """Sinc interp."""
-    print("sync")
-    return None
+    return grid.resample_trace(seismic, dt)
 
 def filter_md_logs(logset: grid.LogSet, **kwargs) -> grid.LogSet:
     """Filter logs in measured depth domain.

@@ -12,7 +12,6 @@ from torch.utils.tensorboard import SummaryWriter
 
 import numpy as np
 
-
 from wtie.learning.losses import ReconstructionLoss, VariationalLoss
 from wtie.dataset import PytorchDataset
 from wtie.learning.network import Net, VariationalNetwork
@@ -20,7 +19,6 @@ from wtie.learning.utils import EarlyStopping, AlphaScheduler
 from wtie.utils.types_ import tensor_or_ndarray, _path_t, List
 from wtie.dataset import BaseDataset
 from wtie.utils.logger import Logger
-
 
 
 ###############################################
@@ -32,15 +30,14 @@ class BaseModel:
     # some names
     default_trained_net_state_dict_name = 'trained_net_state_dict.pt'
 
-
     def __init__(self, save_dir: _path_t,
-                       base_train_dataset: BaseDataset,
-                       base_val_dataset: BaseDataset,
-                       parameters: dict,
-                       logger: Logger,
-                       device: torch.device=None,
-                       tensorboard: SummaryWriter=None,
-                       save_checkpoints: bool=False):
+                 base_train_dataset: BaseDataset,
+                 base_val_dataset: BaseDataset,
+                 parameters: dict,
+                 logger: Logger,
+                 device: torch.device = None,
+                 tensorboard: SummaryWriter = None,
+                 save_checkpoints: bool = False):
 
         self.start_time = time.time()
 
@@ -53,7 +50,6 @@ class BaseModel:
         self.logger = logger
         self.tensorboard = tensorboard
 
-
         # parameters
         self.params = parameters
         self.start_epoch = 0
@@ -61,7 +57,6 @@ class BaseModel:
         self.learning_rate = parameters['learning_rate']
         self.batch_size = parameters['batch_size']
         self.max_epochs = parameters['max_epochs']
-
 
         # datasets No need to add to member attributes
         #self.base_train_dataset = base_train_dataset
@@ -79,15 +74,14 @@ class BaseModel:
         self.train_loader = torch.utils.data.DataLoader(pt_train_dataset,
                                                         batch_size=self.batch_size,
                                                         shuffle=True,
-                                                        num_workers=min(6,cpu_count()),
+                                                        num_workers=min(6, cpu_count()),
                                                         pin_memory=True)
 
         self.val_loader = torch.utils.data.DataLoader(pt_val_dataset,
                                                       batch_size=self.batch_size,
                                                       shuffle=False,
-                                                      num_workers=min(4,cpu_count()),
+                                                      num_workers=min(4, cpu_count()),
                                                       pin_memory=True)
-
 
         # net and stuff
         if device is None:
@@ -96,13 +90,9 @@ class BaseModel:
             self.device = device
         logger.write("Computing device: %s" % str(self.device))
 
-
         # to be orverwriten in child class
         self.early_stopping = None
         self.schedulers: list = []
-
-
-
 
     def train_one_epoch(self):
         raise NotImplementedError()
@@ -114,10 +104,10 @@ class BaseModel:
         _div = self.num_training_samples // self.batch_size
         _remain = int(self.num_training_samples % self.batch_size > 0)
         num_iterations_per_epoch = _div + _remain
-        self.logger.write(\
+        self.logger.write( \
             ("Training network for %d epochs (%d iterations per epoch)" % \
              (self.max_epochs, num_iterations_per_epoch))
-            )
+        )
 
         is_early_stop = False
         for epoch in tqdm(range(self.start_epoch, self.max_epochs)):
@@ -149,9 +139,8 @@ class BaseModel:
             # ckpt
             if self._save_ckpt:
                 if (epoch % (self.max_epochs // 4) == 0) or (epoch == self.max_epochs - 1):
-                    ckpt_path = self.save_dir / ("ckpt_epoch%s.tar" % str(epoch+1).zfill(3))
+                    ckpt_path = self.save_dir / ("ckpt_epoch%s.tar" % str(epoch + 1).zfill(3))
                     self.save_model_ckpt(ckpt_path, epoch)
-
 
         if is_early_stop:
             self.logger.write(("Early stopping at epoch %d" % epoch))
@@ -161,26 +150,21 @@ class BaseModel:
         self.save_history()
         self.save_network(self.save_dir / Model.default_trained_net_state_dict_name)
 
-
         # tb
         if self.tensorboard:
             self.tensorboard.flush()
-
-
 
     def save_history(self):
         with open(self.save_dir / 'history.pkl', "wb") as fp:
             pickle.dump(self.history, fp)
 
-
-    def save_network(self,path):
+    def save_network(self, path):
         """Prefered extension is .pt """
         self.logger.write("Saving network's state_dict to %s" % path)
         torch.save(self.net.state_dict(), path)
 
     def restore_network_from_state_dict(self, path):
         self.net.load_state_dict(torch.load(path, map_location=self.device))
-
 
     def save_model_ckpt(self, path, epoch):
         """Prefered extension is .tar """
@@ -190,7 +174,7 @@ class BaseModel:
             'net_state_dict': self.net.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'loss': self.loss
-            }, path)
+        }, path)
 
     def restore_model_from_ckpt(self, ckpt_file):
         checkpoint = torch.load(ckpt_file)
@@ -199,7 +183,6 @@ class BaseModel:
         self.start_epoch = checkpoint['epoch']
         self.current_epoch = checkpoint['epoch']
         self.loss = checkpoint['loss']
-
 
 
 #########################################
@@ -213,15 +196,14 @@ class Model(BaseModel):
     # some names
     default_trained_net_state_dict_name = BaseModel.default_trained_net_state_dict_name
 
-
     def __init__(self, save_dir,
-                       base_train_dataset,
-                       base_val_dataset,
-                       parameters,
-                       logger,
-                       device=None,
-                       tensorboard=None,
-                       save_checkpoints=False):
+                 base_train_dataset,
+                 base_val_dataset,
+                 parameters,
+                 logger,
+                 device=None,
+                 tensorboard=None,
+                 save_checkpoints=False):
 
         super().__init__(save_dir,
                          base_train_dataset,
@@ -232,46 +214,38 @@ class Model(BaseModel):
                          tensorboard=tensorboard,
                          save_checkpoints=save_checkpoints)
 
-
         if parameters['network_kwargs'] is None:
             network_kwargs = {}
         else:
             network_kwargs = parameters['network_kwargs']
 
-
-
         self.net = Net(base_train_dataset.wavelet_size,
                        network_kwargs)
         self.net.to(self.device)
-
 
         if self.tensorboard is not None:
             self.tensorboard.add_graph(self.net, next(iter(self.train_loader)).to(self.device))
 
         self.loss = ReconstructionLoss(parameters)
 
-
         self.optimizer = torch.optim.Adam(params=self.net.parameters(), lr=self.learning_rate,
                                           betas=(0.9, 0.999), eps=1e-08, amsgrad=False,
                                           weight_decay=parameters['weight_decay'])
 
-
         lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer,
-                                                         parameters['lr_decay_every_n_epoch'],
-                                                         gamma=parameters['lr_decay_rate'])
+                                                       parameters['lr_decay_every_n_epoch'],
+                                                       gamma=parameters['lr_decay_rate'])
 
         self.schedulers = [lr_scheduler]
 
         self.early_stopping = EarlyStopping(min_delta=parameters['min_delta_perc'],
-                                        patience=parameters['patience'],
-                                        min_epochs=int(0.8*self.max_epochs))
+                                            patience=parameters['patience'],
+                                            min_epochs=int(0.8 * self.max_epochs))
 
         self.history = {}
         for key in self.loss.key_names:
             self.history['train_loss_' + key] = []
             self.history['val_loss_' + key] = []
-
-
 
     def train_one_epoch(self):
         self.net.train()
@@ -280,23 +254,21 @@ class Model(BaseModel):
         for key in self.loss.key_names:
             loss_numerics[key] = 0.0
 
-
         count_loop = 0
         for data_batch in self.train_loader:
             count_loop += 1
             self.optimizer.zero_grad()  # zero the parameter gradients
-            data_batch = {k: v.to(self.device) for k, v in data_batch.items()}# to gpu
+            data_batch = {k: v.to(self.device) for k, v in data_batch.items()}  # to gpu
 
             wavelet_output_batch = self.net(seismic=data_batch['seismic'],
                                             reflectivity=data_batch['reflectivity'])
 
             loss = self.loss(data_batch, wavelet_output_batch)
-            loss['total'].backward() # backprop
-            self.optimizer.step() # update params
+            loss['total'].backward()  # backprop
+            self.optimizer.step()  # update params
 
             for key in self.loss.key_names:
                 loss_numerics[key] += loss[key].item()
-
 
         for key in self.loss.key_names:
             _avg_numeric_loss = loss_numerics[key] / count_loop
@@ -307,14 +279,10 @@ class Model(BaseModel):
                                             _avg_numeric_loss,
                                             self.current_epoch)
 
-
-
-
     def validate_training(self):
         loss_numerics = dict()
         for key in self.loss.key_names:
             loss_numerics[key] = 0.0
-
 
         count_loop = 0
         with torch.no_grad():
@@ -323,12 +291,11 @@ class Model(BaseModel):
                 count_loop += 1
                 data_batch = {k: v.to(self.device) for k, v in data_batch.items()}
                 wavelet_output_batch = self.net(seismic=data_batch['seismic'],
-                                            reflectivity=data_batch['reflectivity'])
+                                                reflectivity=data_batch['reflectivity'])
                 loss = self.loss(data_batch, wavelet_output_batch)
 
                 for key in self.loss.key_names:
                     loss_numerics[key] += loss[key].item()
-
 
         for key in self.loss.key_names:
             _avg_numeric_loss = loss_numerics[key] / count_loop
@@ -338,15 +305,7 @@ class Model(BaseModel):
                 self.tensorboard.add_scalar("loss/val/" + key,
                                             _avg_numeric_loss, self.current_epoch)
 
-
-
         return loss_numerics['total'] / count_loop
-
-
-
-
-
-
 
 
 class VariationalModel(BaseModel):
@@ -355,15 +314,14 @@ class VariationalModel(BaseModel):
     # some names
     default_trained_net_state_dict_name = BaseModel.default_trained_net_state_dict_name
 
-
     def __init__(self, save_dir,
-                       base_train_dataset,
-                       base_val_dataset,
-                       parameters,
-                       logger,
-                       device=None,
-                       tensorboard=None,
-                       save_checkpoints=False):
+                 base_train_dataset,
+                 base_val_dataset,
+                 parameters,
+                 logger,
+                 device=None,
+                 tensorboard=None,
+                 save_checkpoints=False):
 
         super().__init__(save_dir,
                          base_train_dataset,
@@ -374,33 +332,27 @@ class VariationalModel(BaseModel):
                          tensorboard=tensorboard,
                          save_checkpoints=save_checkpoints)
 
-
         if parameters['network_kwargs'] is None:
             network_kwargs = {}
         else:
             network_kwargs = parameters['network_kwargs']
 
-
-
         self.net = VariationalNetwork(base_train_dataset.wavelet_size,
-                       network_kwargs)
+                                      network_kwargs)
         self.net.to(self.device)
-
 
         if self.tensorboard is not None:
             self.tensorboard.add_graph(self.net, next(iter(self.train_loader)).to(self.device))
 
         self.loss = VariationalLoss(parameters)
 
-
         self.optimizer = torch.optim.Adam(params=self.net.parameters(), lr=self.learning_rate,
                                           betas=(0.9, 0.999), eps=1e-08, amsgrad=False,
                                           weight_decay=parameters['weight_decay'])
 
-
         lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer,
-                                                         parameters['lr_decay_every_n_epoch'],
-                                                         gamma=parameters['lr_decay_rate'])
+                                                       parameters['lr_decay_every_n_epoch'],
+                                                       gamma=parameters['lr_decay_rate'])
 
         self.alpha_scheduler = AlphaScheduler(loss=self.loss,
                                               alpha_init=parameters['alpha_init'],
@@ -419,7 +371,6 @@ class VariationalModel(BaseModel):
             self.history['train_loss_' + key] = []
             self.history['val_loss_' + key] = []
 
-
     def train_one_epoch(self):
         self.net.train()
 
@@ -427,23 +378,21 @@ class VariationalModel(BaseModel):
         for key in self.loss.key_names:
             loss_numerics[key] = 0.0
 
-
         count_loop = 0
         for data_batch in self.train_loader:
             count_loop += 1
             self.optimizer.zero_grad()  # zero the parameter gradients
-            data_batch = {k: v.to(self.device) for k, v in data_batch.items()}# to gpu
+            data_batch = {k: v.to(self.device) for k, v in data_batch.items()}  # to gpu
 
             wavelet_batch, mu_batch, log_var_batch = self.net(seismic=data_batch['seismic'],
-                                            reflectivity=data_batch['reflectivity'])
+                                                              reflectivity=data_batch['reflectivity'])
 
             loss = self.loss(data_batch, wavelet_batch, mu_batch, log_var_batch)
-            loss['total'].backward() # backprop
-            self.optimizer.step() # update params
+            loss['total'].backward()  # backprop
+            self.optimizer.step()  # update params
 
             for key in self.loss.key_names:
                 loss_numerics[key] += loss[key].item()
-
 
         for key in self.loss.key_names:
             _avg_numeric_loss = loss_numerics[key] / count_loop
@@ -453,13 +402,10 @@ class VariationalModel(BaseModel):
                 self.tensorboard.add_scalar("loss/train/" + key,
                                             _avg_numeric_loss, self.current_epoch)
 
-
-
     def validate_training(self):
         loss_numerics = dict()
         for key in self.loss.key_names:
             loss_numerics[key] = 0.0
-
 
         count_loop = 0
         with torch.no_grad():
@@ -467,15 +413,14 @@ class VariationalModel(BaseModel):
             for data_batch in self.val_loader:
                 count_loop += 1
                 data_batch = {k: v.to(self.device) for k, v in data_batch.items()}
-                wavelet_batch, mu_batch, log_var_batch = self.net(\
-                                            seismic=data_batch['seismic'],
-                                            reflectivity=data_batch['reflectivity']
-                                            )
+                wavelet_batch, mu_batch, log_var_batch = self.net( \
+                    seismic=data_batch['seismic'],
+                    reflectivity=data_batch['reflectivity']
+                )
                 loss = self.loss(data_batch, wavelet_batch, mu_batch, log_var_batch)
 
                 for key in self.loss.key_names:
                     loss_numerics[key] += loss[key].item()
-
 
         for key in self.loss.key_names:
             _avg_numeric_loss = loss_numerics[key] / count_loop
@@ -489,7 +434,6 @@ class VariationalModel(BaseModel):
         return loss_numerics['total'] / count_loop
 
 
-
 #####################################
 # LIGHT WEIGHT FOR HYPER-OTPIM
 #####################################
@@ -497,9 +441,9 @@ class BaseLightModel:
     """For hyper-parameters search."""
 
     def __init__(self, base_train_dataset,
-                       base_val_dataset,
-                       parameters,
-                       device=None):
+                 base_val_dataset,
+                 parameters,
+                 device=None):
 
         # parameters
         self.params = parameters
@@ -507,7 +451,6 @@ class BaseLightModel:
         self.learning_rate = parameters['learning_rate']
         self.batch_size = parameters['batch_size']
         self.max_epochs = parameters['max_epochs']
-
 
         # dataloaders
         pt_train_dataset = PytorchDataset(base_train_dataset)
@@ -519,15 +462,14 @@ class BaseLightModel:
         self.train_loader = torch.utils.data.DataLoader(pt_train_dataset,
                                                         batch_size=self.batch_size,
                                                         shuffle=True,
-                                                        num_workers=min(4,cpu_count()),
+                                                        num_workers=min(4, cpu_count()),
                                                         pin_memory=True)
 
         self.val_loader = torch.utils.data.DataLoader(pt_val_dataset,
                                                       batch_size=self.batch_size,
                                                       shuffle=False,
-                                                      num_workers=min(2,cpu_count()),
+                                                      num_workers=min(2, cpu_count()),
                                                       pin_memory=True)
-
 
         # net and stuff
         if device is None:
@@ -538,7 +480,6 @@ class BaseLightModel:
         # to overwtite in children class
         self.early_stopping = None
         self.schedulers: list = []
-
 
     def train_and_validate(self):
         count = 0
@@ -564,71 +505,58 @@ class BaseLightModel:
         return self.validate_training()
 
 
-
 class LightModel(BaseLightModel):
 
     def __init__(self, base_train_dataset,
-                       base_val_dataset,
-                       parameters,
-                       device=None):
+                 base_val_dataset,
+                 parameters,
+                 device=None):
 
         super().__init__(base_train_dataset,
                          base_val_dataset,
                          parameters,
                          device=device)
 
-
-
         if parameters['network_kwargs'] is None:
             network_kwargs = {}
         else:
             network_kwargs = parameters['network_kwargs']
 
-
-
         self.net = Net(base_train_dataset.wavelet_size,
                        network_kwargs)
         self.net.to(self.device)
 
-
         self.loss = ReconstructionLoss(parameters)
-
 
         self.optimizer = torch.optim.Adam(params=self.net.parameters(), lr=self.learning_rate,
                                           betas=(0.9, 0.999), eps=1e-08, amsgrad=False,
                                           weight_decay=parameters['weight_decay'])
 
         #self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            #optimizer=self.optimizer, mode='min', factor=0.5, patience=5, verbose=True, threshold=1e-4, cooldown=0, min_lr=1e-8)
+        #optimizer=self.optimizer, mode='min', factor=0.5, patience=5, verbose=True, threshold=1e-4, cooldown=0, min_lr=1e-8)
         lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer,
-                                                         parameters['lr_decay_every_n_epoch'],
-                                                         gamma=parameters['lr_decay_rate'])
-
+                                                       parameters['lr_decay_every_n_epoch'],
+                                                       gamma=parameters['lr_decay_rate'])
 
         self.schedulers = [lr_scheduler]
 
         self.early_stopping = EarlyStopping(min_delta=parameters['min_delta_perc'],
-                                        patience=parameters['patience'],
-                                        min_epochs=int(0.8*self.max_epochs))
-
-
-
+                                            patience=parameters['patience'],
+                                            min_epochs=int(0.8 * self.max_epochs))
 
     def train_one_epoch(self):
         self.net.train()
 
         for data_batch in self.train_loader:
             self.optimizer.zero_grad()  # zero the parameter gradients
-            data_batch = {k: v.to(self.device) for k, v in data_batch.items()}# to gpu
+            data_batch = {k: v.to(self.device) for k, v in data_batch.items()}  # to gpu
 
             wavelet_output_batch = self.net(seismic=data_batch['seismic'],
                                             reflectivity=data_batch['reflectivity'])
 
             loss = self.loss(data_batch, wavelet_output_batch)
-            loss['total'].backward() # backprop
-            self.optimizer.step() # update params
-
-
+            loss['total'].backward()  # backprop
+            self.optimizer.step()  # update params
 
     def validate_training(self):
         total_validation_error_mean = 0.
@@ -641,80 +569,66 @@ class LightModel(BaseLightModel):
                 count_loop += 1
                 data_batch = {k: v.to(self.device) for k, v in data_batch.items()}
                 wavelet_output_batch = self.net(seismic=data_batch['seismic'],
-                                            reflectivity=data_batch['reflectivity'])
+                                                reflectivity=data_batch['reflectivity'])
                 loss = self.loss(data_batch, wavelet_output_batch)
                 total_validation_error_mean += loss['validation_error_mean'].item()
-                total_validation_error_std += loss['validation_error_std'].item() # ~approximation
+                total_validation_error_std += loss['validation_error_std'].item()  # ~approximation
 
         mean = total_validation_error_mean / count_loop
         std = total_validation_error_std / count_loop
         return mean, std
 
 
-
-
-
 class LightVariationalModel(BaseLightModel):
 
     def __init__(self, base_train_dataset,
-                       base_val_dataset,
-                       parameters,
-                       device=None):
+                 base_val_dataset,
+                 parameters,
+                 device=None):
 
         super().__init__(base_train_dataset,
                          base_val_dataset,
                          parameters,
                          device=device)
 
-
-
         if parameters['network_kwargs'] is None:
             network_kwargs = {}
         else:
             network_kwargs = parameters['network_kwargs']
 
-
-
         self.net = VariationalNetwork(base_train_dataset.wavelet_size,
-                       network_kwargs)
+                                      network_kwargs)
         self.net.to(self.device)
 
-
         self.loss = VariationalLoss(parameters)
-
 
         self.optimizer = torch.optim.Adam(params=self.net.parameters(), lr=self.learning_rate,
                                           betas=(0.9, 0.999), eps=1e-08, amsgrad=False,
                                           weight_decay=parameters['weight_decay'])
 
         #self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            #optimizer=self.optimizer, mode='min', factor=0.5, patience=5, verbose=True, threshold=1e-4, cooldown=0, min_lr=1e-8)
+        #optimizer=self.optimizer, mode='min', factor=0.5, patience=5, verbose=True, threshold=1e-4, cooldown=0, min_lr=1e-8)
         lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer,
-                                                         parameters['lr_decay_every_n_epoch'],
-                                                         gamma=parameters['lr_decay_rate'])
+                                                       parameters['lr_decay_every_n_epoch'],
+                                                       gamma=parameters['lr_decay_rate'])
         self.schedulers = [lr_scheduler]
         #self.early_stopping = EarlyStopping(min_delta=parameters['min_delta_perc'],
-                                        #patience=parameters['patience'],
-                                        #min_epochs=int(0.8*self.max_epochs))
-
-
-
+        #patience=parameters['patience'],
+        #min_epochs=int(0.8*self.max_epochs))
 
     def train_one_epoch(self):
         self.net.train()
 
         for data_batch in self.train_loader:
             self.optimizer.zero_grad()  # zero the parameter gradients
-            data_batch = {k: v.to(self.device) for k, v in data_batch.items()}# to gpu
+            data_batch = {k: v.to(self.device) for k, v in data_batch.items()}  # to gpu
 
             wavelet_batch, mu_batch, log_var_batch = self.net(seismic=data_batch['seismic'],
-                                            reflectivity=data_batch['reflectivity'])
+                                                              reflectivity=data_batch['reflectivity'])
 
             loss = self.loss(data_batch, wavelet_batch, mu_batch, log_var_batch)
-            loss['total'].backward() # backprop
-            self.optimizer.step() # update params
-
-
+            loss['total'].backward()  # backprop
+            self.optimizer.step()  # update params
 
     def validate_training(self):
         #TODO: ugly...
@@ -741,11 +655,10 @@ class LightVariationalModel(BaseLightModel):
                 val_error_dict = loss['validation_error']
 
                 recon_error_mean += val_error_dict['reconstruction_error'][0].item()
-                recon_error_std += val_error_dict['reconstruction_error'][1].item() # ~approximation
+                recon_error_std += val_error_dict['reconstruction_error'][1].item()  # ~approximation
 
                 var_error_mean += val_error_dict['variation_error'][0].item()
-                var_error_std += val_error_dict['variation_error'][1].item() # ~approximation
-
+                var_error_std += val_error_dict['variation_error'][1].item()  # ~approximation
 
         return_validation_dict['reconstruction_error'] = \
             (recon_error_mean / count, recon_error_std / count)
@@ -764,23 +677,18 @@ class LightVariationalModel(BaseLightModel):
         return return_validation_dict
 
 
-
-
-
-
-
-
 ###############################
 # EVALUATORS
 ###############################
 
 class BaseEvaluator:
     """Lighweigth class to peform evaluation (compute a wavelet given seismic and reflectivity)"""
+
     def __init__(self, network: torch.nn.Module,
                  expected_sampling: float,
-                 state_dict: str=None,
-                 device: torch.device=None,
-                 verbose: bool=True):
+                 state_dict: str = None,
+                 device: torch.device = None,
+                 verbose: bool = True):
         """Patameters
         -------------
         network : pytorch nn.Module
@@ -794,10 +702,8 @@ class BaseEvaluator:
 
         self.expected_sampling = expected_sampling
 
-
         self.net = network
         self.net.to(self.device)
-
 
         self.state_dict = state_dict
         if state_dict is not None:
@@ -809,10 +715,10 @@ class BaseEvaluator:
                 print("Network initialized randomly.")
 
 
-
 class VariationalEvaluator(BaseEvaluator):
     """Compute a wavelet given seismic and reflectivity"""
-    def __init__(self, network, expected_sampling,state_dict=None,
+
+    def __init__(self, network, expected_sampling, state_dict=None,
                  device=None, verbose=True):
 
         super().__init__(network=network,
@@ -820,7 +726,6 @@ class VariationalEvaluator(BaseEvaluator):
                          state_dict=state_dict,
                          device=device,
                          verbose=verbose)
-
 
     def expected_wavelet(self,
                          seismic: tensor_or_ndarray,
@@ -834,17 +739,15 @@ class VariationalEvaluator(BaseEvaluator):
                 seismic = torch.from_numpy(seismic)
                 reflectivity = torch.from_numpy(reflectivity)
 
-            seismic = seismic.to(self.device)
-            reflectivity = reflectivity.to(self.device)
+            seismic.to(self.device)
+            reflectivity.to(self.device)
             wavelet = self.net.compute_expected_wavelet(seismic, reflectivity)
 
             wavelet = wavelet.cpu().data.numpy()
-
         if squeeze:
             wavelet = np.squeeze(wavelet)
 
         return wavelet
-
 
     def sample(self,
                seismic: tensor_or_ndarray,
@@ -858,8 +761,8 @@ class VariationalEvaluator(BaseEvaluator):
                 seismic = torch.from_numpy(seismic)
                 reflectivity = torch.from_numpy(reflectivity)
 
-            seismic = seismic.to(self.device)
-            reflectivity = reflectivity.to(self.device)
+            seismic.to(self.device)
+            reflectivity.to(self.device)
             wavelet = self.net.sample(seismic, reflectivity)
 
             wavelet = wavelet.cpu().data.numpy()
@@ -869,13 +772,12 @@ class VariationalEvaluator(BaseEvaluator):
 
         return wavelet
 
-
     def sample_n_times(self,
-               seismic: tensor_or_ndarray,
-               reflectivity: tensor_or_ndarray,
-               n: int,
-               squeeze: bool = True,
-               ) -> List[np.ndarray]:
+                       seismic: tensor_or_ndarray,
+                       reflectivity: tensor_or_ndarray,
+                       n: int,
+                       squeeze: bool = True,
+                       ) -> List[np.ndarray]:
 
         wavelets = []
 
@@ -885,8 +787,8 @@ class VariationalEvaluator(BaseEvaluator):
                 seismic = torch.from_numpy(seismic)
                 reflectivity = torch.from_numpy(reflectivity)
 
-            seismic = seismic.to(self.device)
-            reflectivity = reflectivity.to(self.device)
+            seismic.to(self.device)
+            reflectivity.to(self.device)
 
             for _ in range(n):
                 wavelet_i = self.net.sample(seismic, reflectivity)
@@ -900,12 +802,9 @@ class VariationalEvaluator(BaseEvaluator):
         return wavelets
 
 
-
-
-
-
 class Evaluator(BaseEvaluator):
     """Compute a wavelet given seismic and reflectivity"""
+
     def __init__(self, network, expected_sampling, state_dict=None,
                  device=None, verbose=True):
 
@@ -919,7 +818,7 @@ class Evaluator(BaseEvaluator):
                  seismic: tensor_or_ndarray,
                  reflectivity: tensor_or_ndarray,
                  squeeze: bool = False,
-                 scale_factor: float=None
+                 scale_factor: float = None
                  ) -> np.ndarray:
 
         with torch.no_grad():
@@ -928,8 +827,8 @@ class Evaluator(BaseEvaluator):
                 seismic = torch.from_numpy(seismic)
                 reflectivity = torch.from_numpy(reflectivity)
 
-            seismic = seismic.to(self.device)
-            reflectivity = reflectivity.to(self.device)
+            seismic.to(self.device)
+            reflectivity.to(self.device)
             wavelet = self.net(seismic, reflectivity)
 
             wavelet = wavelet.cpu().data.numpy()
@@ -941,15 +840,3 @@ class Evaluator(BaseEvaluator):
             wavelet *= scale_factor
 
         return wavelet
-
-
-
-
-
-
-
-
-
-
-
-

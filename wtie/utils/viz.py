@@ -70,6 +70,8 @@ def plot_seismic_and_reflectivity(seismic: grid.Seismic,
 
     assert np.allclose(seismic.basis, reflectivity.basis, rtol=1e-3)
 
+    # the normalization process ensures that data is scaled between -1 and 1
+    # this ensures that both data types are scaled in the same proportion
     if normalize:
         seis_ = np.copy(seismic.values)
         seis_ /= np.abs(seis_).max()
@@ -593,6 +595,10 @@ def plot_logset(logset: grid.LogSet,
                 plot_params: dict = None,
                 fig_axes: tuple = None
                 ) -> plt.subplots:
+
+    """
+    Plots the given logs using matplotlib
+    """
 
     is_vs = logset.vs is not None
 

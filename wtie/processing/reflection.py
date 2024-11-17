@@ -17,6 +17,8 @@ def vertical_acoustic_reflectivity(vp: np.ndarray, rho: np.ndarray) -> np.ndarra
         R0 coefficient series for vertical incidence.
     """
     upper = vp[:-1] * rho[:-1]
+    print("upper")
+    print(vp[:-1])
     lower = vp[1:] * rho[1:]
     return (lower - upper) / (lower + upper)
 
