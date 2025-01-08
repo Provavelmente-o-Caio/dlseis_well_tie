@@ -703,7 +703,6 @@ class BaseEvaluator:
         self.expected_sampling = expected_sampling
 
         self.net = network
-        self.net.to(self.device)
 
         self.state_dict = state_dict
         if state_dict is not None:
@@ -739,8 +738,9 @@ class VariationalEvaluator(BaseEvaluator):
                 seismic = torch.from_numpy(seismic)
                 reflectivity = torch.from_numpy(reflectivity)
 
-            seismic.to(self.device)
-            reflectivity.to(self.device)
+            #seismic.to(self.device)
+            #reflectivity.to(self.device)
+
             wavelet = self.net.compute_expected_wavelet(seismic, reflectivity)
 
             wavelet = wavelet.cpu().data.numpy()

@@ -7,7 +7,7 @@
           <value>
             <JupyterConnectionParameters>
               <option name="managed" value="true" />
-              <option name="sdkName" value="" />
+              <option name="sdkName" value="wtie" />
             </JupyterConnectionParameters>
           </value>
         </entry>
