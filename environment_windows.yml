@@ -31,5 +31,5 @@ dependencies:
     - pip:
           - segyio
           - lasio
-          - ax-platform
+          - ax-platform==0.1.20
           - dtaidistance
