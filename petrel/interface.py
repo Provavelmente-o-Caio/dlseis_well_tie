@@ -10,6 +10,7 @@ import pandas as pd
 import segyio
 import yaml
 from matplotlib.ticker import MaxNLocator
+import sys
 
 from wtie import autotie, grid, viz
 from wtie.processing.logs import despike, interpolate_nans
@@ -47,7 +48,7 @@ class PetrelInterface:
         # self.table =
 
         # self.input_set = InputSet(self.las_logs, self.seis, self.wellpath, self.table)
-        self.inputs = tutorial.load_poseidon_data(self.folder, well="boreas1")
+        self.inputs = tutorial.load_poseidon_data(self.folder, well=sys.argv[1])
         self.las_logs = self.inputs.logset_md
 
     def auto_well_tie(self):
