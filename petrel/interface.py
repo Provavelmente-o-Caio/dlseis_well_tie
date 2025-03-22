@@ -21,7 +21,7 @@ from wtie.utils.datasets.utils import InputSet
 class PetrelInterface:
     """Interface for dinamically integrating the wtie plugin into a Petrel workflow"""
 
-    def __init__(self):
+    def __init__(self, well_name):
         # defining a temporary path
         # change this dinamically once we're able t  o figure out how to export all of this dinamically from petrel
         # self.folder = Path('data/tutorial/Volve')
@@ -48,7 +48,7 @@ class PetrelInterface:
         # self.table =
 
         # self.input_set = InputSet(self.las_logs, self.seis, self.wellpath, self.table)
-        self.inputs = tutorial.load_poseidon_data(self.folder, well=sys.argv[1])
+        self.inputs = tutorial.load_poseidon_data(self.folder, well=well_name)
         self.las_logs = self.inputs.logset_md
 
     def auto_well_tie(self):
@@ -161,6 +161,6 @@ class PetrelInterface:
         )
         ax.legend(loc="best")
         fig, ax = viz.plot_warping(
-            outputs.synth_ seismic, outputs.seismic, outputs2.dlags
+            outputs.synth_seismic, outputs.seismic, outputs2.dlags
         )
         plt.show()
