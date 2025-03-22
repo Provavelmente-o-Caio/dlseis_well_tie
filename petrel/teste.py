@@ -2,4 +2,4 @@ from interface import PetrelInterface
 
 testes_interface = PetrelInterface()
 
-testes_interface.plot_las_logs()
+testes_interface.auto_well_tie()
