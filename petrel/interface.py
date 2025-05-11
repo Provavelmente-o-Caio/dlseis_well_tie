@@ -4,6 +4,7 @@ from pathlib import Path
 from pprint import pprint
 
 import lasio
+import time
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -16,16 +17,18 @@ from wtie import autotie, grid, viz
 from wtie.processing.logs import despike, interpolate_nans
 from wtie.utils.datasets import tutorial
 from wtie.utils.datasets.utils import InputSet
-
+import os
 
 class PetrelInterface:
     """Interface for dinamically integrating the wtie plugin into a Petrel workflow"""
 
     def __init__(self, well_name):
+        print(os.listdir("D:\\"))  # Verifique se o drive está acessível
+        time.sleep(5)
         # defining a temporary path
         # change this dinamically once we're able t  o figure out how to export all of this dinamically from petrel
         # self.folder = Path('data/tutorial/Volve')
-        self.folder = Path("data/tutorial")
+        self.folder = Path("D:\\Caio\\dlseis_well_tie_petrel\\dlseis_well_tie_petrel\\bin\\Debug\\dlseis_well_tie\\data\\tutorial")
         assert self.folder.exists()
         # self.trajectory_path = self.folder / 'volve_path_15_9-19_A.txt'
         # self.table_path = self.folder / 'volve_checkshot_15_9_19A.txt'
