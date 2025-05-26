@@ -1,5 +1,5 @@
 # DEVIATION SURVEY:	(Schluberger)
-#	Depth	Dev (deg)	Aziuth (deg)	Depth	Dev (deg)	Aziuth (deg)#
+#	Depth	Dev (deg)	Aziuth (deg)	Depth	Dev (deg)	Aziuth (deg)
 #	0.00	0.00	0.00	513.73	0.00	0.00
 #	525.19	0.17	270.72	536.85	0.19	284.67
 #	545.31	0.35	278.52	566.69	0.40	149.64

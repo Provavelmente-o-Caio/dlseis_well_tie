@@ -1,6 +1,7 @@
-from interface import PetrelInterface
+from basic_well_tie import Basic_well_tie
 import sys
 
-testes_interface = PetrelInterface(sys.argv[1])
+_, log_path, seismic_path, wellpath_path, td_table_path = sys.argv
 
-testes_interface.auto_well_tie()
+wt = Basic_well_tie(log_path, seismic_path, wellpath_path, td_table_path)
+wt.well_tie()

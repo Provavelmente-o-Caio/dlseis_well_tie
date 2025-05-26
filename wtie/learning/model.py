@@ -221,7 +221,7 @@ class Model(BaseModel):
 
         self.net = Net(base_train_dataset.wavelet_size,
                        network_kwargs)
-        self.net.to(self.device)
+        self.net = self.net.to(self.device)
 
         if self.tensorboard is not None:
             self.tensorboard.add_graph(self.net, next(iter(self.train_loader)).to(self.device))
@@ -339,7 +339,7 @@ class VariationalModel(BaseModel):
 
         self.net = VariationalNetwork(base_train_dataset.wavelet_size,
                                       network_kwargs)
-        self.net.to(self.device)
+        self.net = self.net.to(self.device)
 
         if self.tensorboard is not None:
             self.tensorboard.add_graph(self.net, next(iter(self.train_loader)).to(self.device))
@@ -524,7 +524,7 @@ class LightModel(BaseLightModel):
 
         self.net = Net(base_train_dataset.wavelet_size,
                        network_kwargs)
-        self.net.to(self.device)
+        self.net = self.net.to(self.device)
 
         self.loss = ReconstructionLoss(parameters)
 
@@ -598,7 +598,7 @@ class LightVariationalModel(BaseLightModel):
 
         self.net = VariationalNetwork(base_train_dataset.wavelet_size,
                                       network_kwargs)
-        self.net.to(self.device)
+        self.net = self.net.to(self.device)
 
         self.loss = VariationalLoss(parameters)
 
@@ -738,8 +738,8 @@ class VariationalEvaluator(BaseEvaluator):
                 seismic = torch.from_numpy(seismic)
                 reflectivity = torch.from_numpy(reflectivity)
 
-            #seismic.to(self.device)
-            #reflectivity.to(self.device)
+            seismic = seismic.to(self.device)
+            reflectivity = reflectivity.to(self.device)
 
             wavelet = self.net.compute_expected_wavelet(seismic, reflectivity)
 
@@ -761,8 +761,8 @@ class VariationalEvaluator(BaseEvaluator):
                 seismic = torch.from_numpy(seismic)
                 reflectivity = torch.from_numpy(reflectivity)
 
-            seismic.to(self.device)
-            reflectivity.to(self.device)
+            seismic = seismic.to(self.device)
+            reflectivity = reflectivity.to(self.device)
             wavelet = self.net.sample(seismic, reflectivity)
 
             wavelet = wavelet.cpu().data.numpy()
@@ -787,8 +787,8 @@ class VariationalEvaluator(BaseEvaluator):
                 seismic = torch.from_numpy(seismic)
                 reflectivity = torch.from_numpy(reflectivity)
 
-            seismic.to(self.device)
-            reflectivity.to(self.device)
+            seismic = seismic.to(self.device)
+            reflectivity = reflectivity.to(self.device)
 
             for _ in range(n):
                 wavelet_i = self.net.sample(seismic, reflectivity)
@@ -827,8 +827,8 @@ class Evaluator(BaseEvaluator):
                 seismic = torch.from_numpy(seismic)
                 reflectivity = torch.from_numpy(reflectivity)
 
-            seismic.to(self.device)
-            reflectivity.to(self.device)
+            seismic = seismic.to(self.device)
+            reflectivity = reflectivity.to(self.device)
             wavelet = self.net(seismic, reflectivity)
 
             wavelet = wavelet.cpu().data.numpy()
