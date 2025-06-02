@@ -13,10 +13,9 @@ set PATH_CONDA=D:\anaconda3
 set EXTRACT_PATH=%AppData%
 
 
-if not exist "%AppData%\dlseis_well_tie\petrel\interface2.py" (
+if not exist "%AppData%\dlseis_well_tie\petrel\teste.py" (
 	echo Descompactando script python
 	"%~dp07z.exe" x "%~dp0%CONDA_ENV_ZIP%" -o%EXTRACT_PATH%
-	pause
 )
 
 call %PATH_CONDA%\Scripts\activate.bat
@@ -35,8 +34,7 @@ set QT_PLUGIN_PATH=%PATH_CONDA%\envs\%CONDA_ENV_NAME%\Library\plugins
 :: this will have to be changed, however i don't currently know how to dinamycally change disks on windows
 
 echo executing code
-python "%AppData%\dlseis_well_tie\petrel\interface2.py" %1 %2 %3 %4 || (
+python "%AppData%\dlseis_well_tie\petrel\teste.py" %1 %2 %3 %4 || (
     echo Erro ao executar o script Python
-    pause
 )
 pause
