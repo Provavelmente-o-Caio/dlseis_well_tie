@@ -702,13 +702,14 @@ class BaseEvaluator:
 
         self.expected_sampling = expected_sampling
 
-        self.net = network
+        self.net = network.to(self.device)
 
         self.state_dict = state_dict
         if state_dict is not None:
             if verbose:
                 print("Loading network parameters from %s" % state_dict)
             self.net.load_state_dict(torch.load(state_dict, map_location=self.device))
+            self.net = self.net.to(self.device)
         else:
             if verbose:
                 print("Network initialized randomly.")
@@ -734,8 +735,9 @@ class VariationalEvaluator(BaseEvaluator):
 
         with torch.no_grad():
             self.net.eval()
-            if type(seismic) is np.ndarray:
+            if isinstance(seismic, np.ndarray):
                 seismic = torch.from_numpy(seismic)
+            if isinstance(reflectivity, np.ndarray):
                 reflectivity = torch.from_numpy(reflectivity)
 
             seismic = seismic.to(self.device)
