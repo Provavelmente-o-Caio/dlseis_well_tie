@@ -57,7 +57,7 @@ def test_network():
 
     wavelet = net(seismic, reflectivity)
 
-    wavelet = wavelet.detach().cpu().numpy()
+    wavelet = wavelet.detach()
 
     assert wavelet.shape[0] == 4
     assert wavelet.shape[1] == 32

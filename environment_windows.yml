@@ -8,9 +8,8 @@ dependencies:
     - defaults::jupyter
     - defaults::ipython
     - defaults::multimethod
-    - pytorch::pytorch
-    - pytorch::torchvision
-    - defaults::cudatoolkit=10.1
+    - defaults::cudatoolkit=10.2
+    - pytorch::pytorch=*=*cuda10.2*
     - defaults::tensorboard
     - defaults::numpy
     - defaults::pandas
@@ -27,6 +26,7 @@ dependencies:
     - defaults::pylint
     - defaults::tqdm
     - conda-forge::noise
+    - pytorch::torchvision
     - pip
     - pip:
           - segyio

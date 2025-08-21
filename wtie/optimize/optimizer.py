@@ -21,7 +21,7 @@ def create_ax_client(num_iters: int,
     ax_gen_startegy = GenerationStrategy(
         [GenerationStep(Models.SOBOL, num_trials=n_sobol),
          GenerationStep(Models.BOTORCH,num_trials=n_bayes,
-                        max_parallelism=3,
+                        max_parallelism=8,
                         model_kwargs = {"torch_dtype": torch.float,
                                         "torch_device": device}
                         )
