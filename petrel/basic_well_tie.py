@@ -5,6 +5,7 @@ import lasio
 import yaml
 import sys
 import warnings
+import json
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 
@@ -18,167 +19,127 @@ from wtie.utils.datasets.utils import InputSet
 
 
 class Basic_well_tie:
-    def __init__(self, logs_path, seis_path, path_path, table_path) -> None:
-        self.logs = self.import_logs_generic(logs_path)
-        self.seis = self.import_seismic_trace(seis_path)
-        self.path = self.import_well_path_generic(path_path)
-        self.td_table = self.import_time_depth_table_generic(table_path)
+    def __init__(self, logs_path, seis_path, path_path, table_path, data_path, config_path) -> None:
+        with open(data_path, "r") as f:
+            data = json.load(f)
 
-    def import_logs_generic(self, file_path: str) -> grid.LogSet:
-        """
-        Importa qualquer arquivo LAS e retorna um grid.LogSet com todos os logs disponíveis,
-        mapeando nomes alternativos para 'Vp' e 'Rho' se necessário e interpolando para base regular.
-        """
+        with open(config_path, "r") as f:
+            config = json.load(f)
+
+        self.las_logs = self.import_las_logs(logs_path, data)
+        self.seis = self.import_seismic(seis_path)
+        self.path = self.import_well_path(path_path, data)
+        self.td_table = self.import_time_depth_table(table_path, data, config)
+
+    def import_las_logs(self, file_path, data) -> grid.LogSet:
         file_path = Path(file_path)
+
+        log_data = data["Logs"]
+
+        # Read file
+        print(file_path)
         las_logs = lasio.read(file_path)
-        las_df = las_logs.df()
-        logs = {}
-        # Define base regular (usando o menor passo encontrado)
-        md = las_df.index.values
-        step = np.min(np.diff(md))
-        md_regular = np.arange(md[0], md[-1] + step, step)
-        # Mapeamento de nomes alternativos
-        name_map = {
-            "Vp": [
-                col
-                for col in las_df.columns
-                if col.startswith("DT") or col.upper() in ["VP", "DTCO", "SONIC"]
-            ],
-            "Rho": [
-                col
-                for col in las_df.columns
-                if col.upper() in ["RHO", "RHOB", "RHOZ", "DENS"]
-            ],
-        }
-        # Primeiro, tenta mapear os obrigatórios
-        for key, aliases in name_map.items():
-            for alias in aliases:
-                if alias in las_df.columns:
-                    values = las_df[alias].values
-                    # Interpola para base regular
-                    interp_values = np.interp(md_regular, md, interpolate_nans(values))
-                    if key == "Vp":
-                        if np.nanmean(values) > 100:  # provavelmente DT
-                            interp_values = (
-                                1 / interp_values * 1e6 / 3.2808
-                            )  # ft/us -> m/s
-                    logs[key] = grid.Log(interp_values, md_regular, "md", name=key)
-                    break
-        # Adiciona os demais logs
-        for col in las_df.columns:
-            if col not in logs:
-                try:
-                    values = las_df[col].values
-                    interp_values = np.interp(md_regular, md, interpolate_nans(values))
-                    logs[col] = grid.Log(interp_values, md_regular, "md", name=col)
-                except Exception as e:
-                    print(f"Não foi possível importar o log {col}: {e}")
-        return grid.LogSet(logs=logs)
+        las_logs = las_logs.df()
 
-    def import_well_path_generic(self, file_path: str, kb: float = 0) -> grid.WellPath:
-        """
-        Importa um arquivo de trajetória de poço.
-        """
-        file_path = Path(file_path)
+        print(las_logs)
 
-        try:
-            # Verifica primeiro se é formato Boreas (6 colunas)
-            with open(file_path) as f:
-                # Pula a primeira linha
-                next(f)
-                primeira_linha_dados = next(f).strip()
+        log_dict = {}
 
-            # Se tem 6 números, é formato Boreas
-            if len(primeira_linha_dados.split()) == 11:
-                # Lê pulando apenas as duas primeiras linhas
-                df = pd.read_csv(
-                    file_path, header=None, delimiter=r"\s+", skiprows=[0, 1]
-                )
-                # Reorganiza os dados das 6 colunas em 3
-                data = []
-                for _, row in df.iterrows():
-                    data.extend([(row[0], row[1]), (row[4], row[6])])
-                df_clean = pd.DataFrame(data, columns=["MD", "INC"])
-            else:
-                # Formato Volve (3 colunas)
-                df = pd.read_csv(
-                    file_path,
-                    header=None,
-                    delimiter=r"\s+",
-                    comment="#",
-                    skip_blank_lines=True,
-                )
-                df.columns = ["MD", "INC", "AZI"][: len(df.columns)]
-                df_clean = df[["MD", "INC"]]
 
-            # Limpa e ordena os dados
-            df_clean = df_clean.apply(pd.to_numeric, errors="coerce").dropna()
-            df_clean = df_clean.sort_values("MD").drop_duplicates("MD")
-
-            md = df_clean["MD"].values
-            inc = df_clean["INC"].values
-
-            # Para o formato Volve, garantimos que inc tem um elemento a menos que md
-            if len(inc) == len(md):
-                inc = inc[:-1]
-
-            # Garante que começa em MD=0
-            if md[0] != 0:
-                md = np.concatenate(([0.0], md))
-                inc = np.concatenate(([0.0], inc))
-
-            # Garante que os valores são estritamente crescentes
-            mask = np.diff(md) > 0
-            mask = np.concatenate(([True], mask))
-            md = md[mask]
-            inc = inc[mask[:-1]]  # ajusta o tamanho de inc
-
-            # Calcula TVD e converte para TVDSS
-            tvd = grid.WellPath.get_tvdkb_from_inclination(md, inc)
-            tvd = grid.WellPath.tvdkb_to_tvdss(tvd, kb)
-
-            return grid.WellPath(md=md, tvdss=tvd, kb=kb)
-
-        except Exception as e:
-            raise ValueError(f"Erro ao ler arquivo {file_path}: {e}")
-
-    def import_time_depth_table_generic(self, file_path: str) -> grid.TimeDepthTable:
-        """
-        Importa uma tabela tempo/profundidade genérica (espera colunas: TWT, TVDSS).
-        Suporta formatos:
-        1. Duas colunas simples: TWT TVDSS
-        2. Formato Boreas: Depth TVDSS OWT Depth TVDSS OWT
-        """
-        file_path = Path(file_path)
-
-        # Lê o arquivo ignorando comentários
-        df = pd.read_csv(
-            file_path, delimiter=r"\s+", header=None, comment="#", skip_blank_lines=True
+        # Vp
+        vp_curve = log_data["VP"]  # "DTCO"
+        log_dict['Vp'] = grid.Log(
+            las_logs[vp_curve].values, 
+            las_logs[vp_curve].index, 
+            "md", 
+            name="Vp"
         )
 
-        # Verifica o formato pelo número de colunas
-        if len(df.columns) >= 6:  # Formato Boreas
-            # Reorganiza os dados das 6 colunas em 2 (TVDSS, OWT)
-            data = []
-            for _, row in df.iterrows():
-                # Pega apenas TVDSS e OWT de cada par
-                data.extend([(row[2], row[1]), (row[5], row[4])])
-            df_clean = pd.DataFrame(data, columns=["TWT", "TVDSS"])
-        else:  # Formato duas colunas
-            df_clean = df.iloc[:, :2]
-            df_clean.columns = ["TWT", "TVDSS"]
+        # Vs
+        vs_curve = log_data["VS"]  # "DTSM"
+        log_dict['Vs'] = grid.Log(
+            las_logs[vs_curve].values, 
+            las_logs[vs_curve].index, 
+            "md", 
+            name="Vs"
+        )
 
-        # Limpa e ordena os dados
-        df_clean = df_clean.apply(pd.to_numeric, errors="coerce").dropna()
-        df_clean = df_clean.sort_values("TWT").drop_duplicates("TWT")
+        # Rho
+        rho_curve = log_data["Rho"]  # "RHOB"
+        log_dict['Rho'] = grid.Log(
+            interpolate_nans(las_logs[rho_curve].values), 
+            las_logs[rho_curve].index, 
+            "md", 
+            name="Rho"
+        )
 
-        # Extrai os arrays
-        twt = df_clean["TWT"].values
-        tvdss = df_clean["TVDSS"].values
+        # GR opcional
+        if "GR" in log_data and log_data["GR"] != "":
+            gr_curve = log_data["GR"]
+            log_dict['GR'] = grid.Log(
+                interpolate_nans(las_logs[gr_curve].values), 
+                las_logs[gr_curve].index, 
+                "md"
+            )
 
-        # OWT para TWT (se necessário)
-        if np.mean(twt) < 1:  # provavelmente OWT
-            twt = 2 * twt  # converte para TWT
+        # Caliper opcional
+        if "Cali" in log_data and log_data["Cali"] != "":
+            cali_curve = log_data["Cali"]
+            log_dict['Cali'] = grid.Log(
+                las_logs[cali_curve].values, 
+                las_logs[cali_curve].index, 
+                "md"
+            )
+            
+            
+            return grid.LogSet(log_dict)
+
+    def import_seismic(self, seis_path) -> grid.Seismic:
+        # only works if not prestack
+        file_path = Path(seis_path)
+
+        with segyio.open(file_path, 'r') as f:
+            twt = f.samples / 1000
+            seis = np.squeeze(segyio.tools.cube(f))
+        return grid.Seismic(seis, twt, 'twt')
+
+    def import_well_path(self, path_path, data) -> grid.WellPath:
+        file_path = Path(path_path)
+
+        print(data)
+        print(json.dumps(data, indent=4))
+        print(data["Path"])
+
+        wp = pd.read_csv(file_path, header=1, delimiter=r"\s+", usecols=range(1, len(data["Entire_Path"]) + 1), names=data["Entire_Path"])
+
+        # Find out how to find this value
+        kb = 0
+
+        tvd = grid.WellPath.get_tvdkb_from_inclination(
+            wp.loc[:, data["Path"][0]].values,
+            wp.loc[:, data["Path"][1]].values[:-1]
+        )
+
+        tvd = grid.WellPath.tvdkb_to_tvdss(tvd, kb)
+
+        # TODO: Find out how to find depth
+        return grid.WellPath(md=wp.loc[:, data["Path"][0]].values, tvdss=tvd, kb=kb)
+
+    def import_time_depth_table(self, table_path, data, config) -> grid.TimeDepthTable:
+        file_path = Path(table_path)
+
+        td = pd.read_csv(file_path, header=None, delimiter=r"\r+", skiprows=[0, 1], names=data["Entire_Table"], usecols=range(1, len(data["Entire_Table"])+1))
+
+        if bool(config["isOWT"]):
+            twt = td.loc[:, data["Table"][0]].values * 2 # owt to twt
+        else:
+            twt = td.loc[:, data["Table"][0]].values
+
+        tvdss = td.loc[:, data["Table"][1]].values
+
+        print(data["Table"][1])
+        print(td)
+        print(tvdss)
 
         return grid.TimeDepthTable(twt=twt, tvdss=tvdss)
 
@@ -191,6 +152,7 @@ class Basic_well_tie:
         with segyio.open(file_path, "r", ignore_geometry=True) as f:
             twt = f.samples / 1000  # ms para s
             trace = f.trace[trace_idx]  # pega o traço desejado
+
         return grid.Seismic(
             trace, twt, "twt", name=f"{file_path.stem}_trace{trace_idx}"
         )

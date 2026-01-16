@@ -297,7 +297,7 @@ def _import_volve_logs(folder: str) -> grid.LogSet:
     log_dict['GR'] = grid.Log(interpolate_nans(
         las_logs.LFP_GR.values), las_logs.LFP_VP.index, 'md')
     log_dict['Cali'] = grid.Log(
-        las_logs.LFP_CALI.values, las_logs.LFP_VP.index, 'md')
+        las_logs.LFP_GR.values, las_logs.LFP_VP.index, 'md')
 
     return grid.LogSet(log_dict)
 

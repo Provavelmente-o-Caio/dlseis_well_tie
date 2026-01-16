@@ -27,7 +27,6 @@ class PetrelInterface:
         time.sleep(5)
         # defining a temporary path
         # change this dinamically once we're able t  o figure out how to export all of this dinamically from petrel
-        # self.folder = Path('data/tutorial/Volve')
         self.folder = Path("D:\\Caio\\dlseis_well_tie_petrel\\dlseis_well_tie_petrel\\bin\\Debug\\dlseis_well_tie\\data\\tutorial")
         assert self.folder.exists()
         # self.trajectory_path = self.folder / 'volve_path_15_9-19_A.txt'
