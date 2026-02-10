@@ -1,41 +1,49 @@
 @echo off
-setlocal
+setlocal EnableDelayedExpansion
 
 set CONDA_ENV_ZIP=dlseis_well_tie.zip
-set CONDA_ENV_NAME=wtie
-
 set PATH_CONDA=D:\anaconda3
 set EXTRACT_PATH=%AppData%
+set SCRIPT_PATH=%EXTRACT_PATH%\dlseis_well_tie\petrel\basic_well_path.py
+set WRAPPER_PATH=%~dp0run_isolated.py
 
-echo Logs file: %1
-echo Seismic file: %2
-echo Well path file: %3
-echo Table file: %4
-echo Data file: %5
-echo Config file: %6
-
-if not exist "%AppData%\dlseis_well_tie\petrel\teste.py" (
-	echo Descompactando script python
-	"%~dp07z.exe" x "%~dp0%CONDA_ENV_ZIP%" -o%EXTRACT_PATH%
+if not exist "%SCRIPT_PATH%" (
+    echo [INFO] Descompactando ambiente...
+    "%~dp07z.exe" x "%~dp0%CONDA_ENV_ZIP%" -o"%EXTRACT_PATH%"
 )
 
-call %PATH_CONDA%\Scripts\activate.bat
+echo [INFO] Ativando Conda...
+call "%PATH_CONDA%\Scripts\activate.bat"
 
-if not exist "%PATH_CONDA%\envs\%CONDA_ENV_NAME%" (
-    echo no env
-    call conda env create -f "%AppData%\dlseis_well_tie\enviroment_windows.yml"
+if not exist "%PATH_CONDA%\envs\wtie" (
+    echo [INFO] Criando ambiente wtie...
+    call conda env create -f "%EXTRACT_PATH%\dlseis_well_tie\enviroment_windows.yml"
 )
 
-echo activating env
-call conda activate "%CONDA_ENV_NAME%"
+echo [INFO] Ativando ambiente wtie...
+call conda activate wtie
 
-:: Set the QT_PLUGIN_PATH environment variable
-set QT_PLUGIN_PATH=%PATH_CONDA%\envs\%CONDA_ENV_NAME%\Library\plugins
+echo.
+echo ========================================
+echo DIAGNOSTICO PRE-EXECUCAO
+echo ========================================
+python --version
+where hdf5.dll 2>nul
+echo ========================================
+echo.
 
-:: this will have to be changed, however i don't currently know how to dinamycally change disks on windows
+echo [INFO] Executando script via wrapper isolado...
+python "%WRAPPER_PATH%" "%SCRIPT_PATH%" %*
 
-echo executing code
-python "%AppData%\dlseis_well_tie\petrel\teste.py" %1 %2 %3 %4 %5 %6 || (
-    echo Erro ao executar o script Python
+set EXIT_CODE=!ERRORLEVEL!
+
+echo.
+if !EXIT_CODE! equ 0 (
+    echo [SUCESSO] Script executado com sucesso
+) else (
+    echo [ERRO] Script terminou com codigo: !EXIT_CODE!
 )
-pause
+
+call conda deactivate
+endlocal
+exit /b !EXIT_CODE!

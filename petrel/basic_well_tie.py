@@ -17,6 +17,7 @@ from wtie.processing.logs import interpolate_nans, despike
 from wtie.utils.datasets import tutorial
 from wtie.utils.datasets.utils import InputSet
 
+EXPECTED_ARGUMENTS = 6
 
 class Basic_well_tie:
     def __init__(self, logs_path, seis_path, path_path, table_path, data_path, config_path) -> None:
@@ -37,48 +38,67 @@ class Basic_well_tie:
         log_data = data["Logs"]
 
         # Read file
-        print(file_path)
         las_logs = lasio.read(file_path)
         las_logs = las_logs.df()
 
-        print(las_logs)
-
         log_dict = {}
+
+        start_burn = int(log_data["Start_range"])
+        end_burn = int(log_data["End_range"])
 
 
         # Vp
-        vp_curve = log_data["VP"]  # "DTCO"
+        #TODO: Aplicar conversões de unidade de medida de maneira não manual
+
+        vp_curve = log_data["VP"]  # ex: "DTCO"
+        sonic = las_logs[vp_curve].values[start_burn:-end_burn]
+        sonic = 1/sonic
+        sonic *= 1e6
+        sonic /= 3.2808
+        md = las_logs[vp_curve].index.values[start_burn:-end_burn]
+
         log_dict['Vp'] = grid.Log(
-            las_logs[vp_curve].values, 
-            las_logs[vp_curve].index, 
+            sonic, 
+            md, 
             "md", 
-            name="Vp"
+            name="Vp",
         )
+
 
         # Vs
         vs_curve = log_data["VS"]  # "DTSM"
+        shear = las_logs[vs_curve].values[start_burn:-end_burn]
+        shear = 1 / shear  # ft/us
+        shear *= 1e6  # ft/s
+        shear /= 3.2808  # m/s
+        md = las_logs[vs_curve].index.values[start_burn:-end_burn]
+
         log_dict['Vs'] = grid.Log(
-            las_logs[vs_curve].values, 
-            las_logs[vs_curve].index, 
+            shear, 
+            md, 
             "md", 
-            name="Vs"
+            name="Vs",
         )
+
 
         # Rho
         rho_curve = log_data["Rho"]  # "RHOB"
+        rho = interpolate_nans(las_logs[rho_curve].values[start_burn:-end_burn])
+        md = las_logs[rho_curve].index[start_burn:-end_burn]
+
         log_dict['Rho'] = grid.Log(
-            interpolate_nans(las_logs[rho_curve].values), 
-            las_logs[rho_curve].index, 
-            "md", 
-            name="Rho"
+            rho, 
+            md, 
+            "md",
+            name="Rho",
         )
 
         # GR opcional
         if "GR" in log_data and log_data["GR"] != "":
             gr_curve = log_data["GR"]
             log_dict['GR'] = grid.Log(
-                interpolate_nans(las_logs[gr_curve].values), 
-                las_logs[gr_curve].index, 
+                interpolate_nans(las_logs[gr_curve].values[start_burn:-end_burn]), 
+                las_logs[gr_curve].index.values[start_burn:-end_burn], 
                 "md"
             )
 
@@ -86,13 +106,13 @@ class Basic_well_tie:
         if "Cali" in log_data and log_data["Cali"] != "":
             cali_curve = log_data["Cali"]
             log_dict['Cali'] = grid.Log(
-                las_logs[cali_curve].values, 
-                las_logs[cali_curve].index, 
+                las_logs[cali_curve].values[start_burn:-end_burn], 
+                las_logs[cali_curve].index.values[start_burn:-end_burn], 
                 "md"
             )
             
             
-            return grid.LogSet(log_dict)
+        return grid.LogSet(log_dict)
 
     def import_seismic(self, seis_path) -> grid.Seismic:
         # only works if not prestack
@@ -110,7 +130,7 @@ class Basic_well_tie:
         print(json.dumps(data, indent=4))
         print(data["Path"])
 
-        wp = pd.read_csv(file_path, header=1, delimiter=r"\s+", usecols=range(1, len(data["Entire_Path"]) + 1), names=data["Entire_Path"])
+        wp = pd.read_csv(file_path, header=1, delimiter=r"\s+", usecols=range(1, len(data["Entire_Path"]) + 1), names=data["Entire_Path"], engine="python")
 
         # Find out how to find this value
         kb = 0
@@ -128,7 +148,9 @@ class Basic_well_tie:
     def import_time_depth_table(self, table_path, data, config) -> grid.TimeDepthTable:
         file_path = Path(table_path)
 
-        td = pd.read_csv(file_path, header=None, delimiter=r"\r+", skiprows=[0, 1], names=data["Entire_Table"], usecols=range(1, len(data["Entire_Table"])+1))
+        td = pd.read_csv(file_path, header=None, sep=r"\s+", skiprows=[0, 1], names=data["Entire_Table"])
+
+        print(len(data["Entire_Table"])+1)
 
         if bool(config["isOWT"]):
             twt = td.loc[:, data["Table"][0]].values * 2 # owt to twt
@@ -158,11 +180,12 @@ class Basic_well_tie:
         )
 
     def well_tie(self):
-        inputs = InputSet(logset_md=self.logs, seismic=self.seis, wellpath=self.path, table=self.td_table)
-        model_state_dict = Path("data/tutorial/trained_net_state_dict.pt")
+        inputs = InputSet(logset_md=self.las_logs, seismic=self.seis, wellpath=self.path, table=self.td_table)
+
+        model_state_dict = Path("../data/tutorial/trained_net_state_dict.pt")
         assert model_state_dict.is_file()
 
-        with open(Path("data/tutorial/network_parameters.yaml"), "r") as yaml_file:
+        with open(Path("../data/tutorial/network_parameters.yaml"), "r") as yaml_file:
             training_parameters = yaml.load(yaml_file, Loader=yaml.Loader)
 
         wavelet_extractor = tutorial.load_wavelet_extractor(
@@ -223,17 +246,21 @@ class Basic_well_tie:
         means, covariances = values
 
         outputs.plot_optimization_objective()
+
         fig, axes = outputs.plot_wavelet(fmax=85, phi_max=15, figsize=(6, 5))
         axes[0].set_xlim((-0.1, 0.1))
         axes[2].set_ylim((-12.5, 12.5))
         fig.tight_layout()
+
         _scale = 120000
         fig, axes = outputs.plot_tie_window(wiggle_scale=_scale, figsize=(12.0, 7.5))
+
         fig, ax = viz.plot_td_table(inputs.table, plot_params=dict(label="original"))
         viz.plot_td_table(
             outputs.table, plot_params=dict(label="modified"), fig_axes=(fig, ax)
         )
         ax.legend(loc="best")
+
         s_and_s_params = dict(window_length=0.060, max_lag=0.010)  # in seconds
 
         outputs2 = autotie.stretch_and_squeeze(
@@ -264,3 +291,20 @@ class Basic_well_tie:
             outputs.synth_seismic, outputs.seismic, outputs2.dlags
         )
         plt.show()
+
+if __name__ == "__main__":
+    if len(sys.argv) >= EXPECTED_ARGUMENTS + 1:
+        _, log_path, seismic_path, wellpath_path, td_table_path, data_path, config_path = sys.argv
+
+        wt = Basic_well_tie(log_path, seismic_path, wellpath_path, td_table_path, data_path, config_path)
+        wt.well_tie()
+    else:
+        print("[ERRO] Argumentos insuficientes!")
+        print(f"\nEsperado: 6 argumentos, recebido: {len(sys.argv) - 1}")
+        print("\nUso:")
+        print("  python teste.py LOG_PATH SEISMIC_PATH WELLPATH_PATH "
+              "TD_TABLE_PATH DATA_JSON CONFIG_JSON")
+        print("\nExemplo:")
+        print("  python teste.py data/logs.las data/seismic.sgy data/path.txt "
+              "data/table.txt data.json config.json")
+        sys.exit(1)
