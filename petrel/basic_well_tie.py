@@ -47,6 +47,7 @@ class Basic_well_tie:
         file_path = Path(file_path)
 
         log_data = data["Logs"]
+        configs = config["Logs"]
 
         # Read file
         las_logs = lasio.read(file_path)
@@ -55,9 +56,9 @@ class Basic_well_tie:
         log_dict = {}
 
         # loading configs
-        start_burn = int(config["Start_range"])
-        end_burn = int(config["End_range"])
-        las_unit = config["las_unit"]
+        start_burn = int(configs["Start_range"])
+        end_burn = int(configs["End_range"])
+        las_unit = configs["las_unit"]
 
         # Vp
         vp_curve = log_data["VP"]  # ex: "DTCO"
@@ -152,6 +153,7 @@ class Basic_well_tie:
 
     def import_time_depth_table(self, table_path, data, config) -> grid.TimeDepthTable:
         file_path = Path(table_path)
+        configs = config["Table"]
 
         td = pd.read_csv(
             file_path,
@@ -161,18 +163,12 @@ class Basic_well_tie:
             names=data["Entire_Table"],
         )
 
-        print(len(data["Entire_Table"]) + 1)
-
-        if bool(config["isOWT"]):
+        if bool(configs["isOWT"]):
             twt = td.loc[:, data["Table"][0]].values * 2  # owt to twt
         else:
             twt = td.loc[:, data["Table"][0]].values
 
         tvdss = td.loc[:, data["Table"][1]].values
-
-        print(data["Table"][1])
-        print(td)
-        print(tvdss)
 
         return grid.TimeDepthTable(twt=twt, tvdss=tvdss)
 
@@ -308,7 +304,7 @@ class Basic_well_tie:
         )
         plt.show()
 
-    def convert_to_mps(values, unit: str):
+    def convert_to_mps(self, values, unit: str):
         """
         Convert LAS log velocity/sonic units to m/s.
 

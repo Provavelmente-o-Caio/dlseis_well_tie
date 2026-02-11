@@ -1,7 +1,10 @@
 {
-    "isOWT": true,
-    "las_unit": "us/ft",
-    "Start_range": "6050",
-    "End_range": "60"
-
+    "Logs": {
+        "las_unit": "us/ft",
+        "Start_range": "6050",
+        "End_range": "60"
+    },
+    "Table": {
+        "isOWT": true
+    }
 }
