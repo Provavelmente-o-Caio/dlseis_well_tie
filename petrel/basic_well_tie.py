@@ -1,19 +1,18 @@
+import json
+import sys
+from pathlib import Path
+
+import lasio
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import segyio
-import lasio
 import yaml
-import sys
-import json
-import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 
-
-from pathlib import Path
-
-from wtie import grid, viz, autotie
+from wtie import autotie, grid, viz
 from wtie.processing.grid import LogSet, Seismic, TimeDepthTable, WellPath
-from wtie.processing.logs import interpolate_nans, despike
+from wtie.processing.logs import despike, interpolate_nans
 from wtie.utils.datasets import tutorial
 from wtie.utils.datasets.utils import InputSet
 
@@ -38,7 +37,7 @@ class Basic_well_tie:
 
         self.las_logs: LogSet = self.import_las_logs(logs_path, data, config)
         self.seis: Seismic = self.import_seismic(seis_path)
-        self.path: WellPath = self.import_well_path(path_path, data)
+        self.path: WellPath = self.import_well_path(path_path, data, config)
         self.td_table: TimeDepthTable = self.import_time_depth_table(
             table_path, data, config
         )
@@ -139,23 +138,14 @@ class Basic_well_tie:
             names=data["Entire_Path"],
             engine="python",
         )
+        
+        depth, inclination = data["Path"][0], data["Path"][1]
 
-        md = np.concatenate(
-            (
-                np.zeros(
-                    1,
-                )
-            ),
-            wp.loc[:, data["Path"][0]].values,
-        )
-        dev = np.concatenate(
-            (
-                np.zeros(
-                    1,
-                )
-            ),
-            wp.loc[:, data["Path"][1]].values[:-1],
-        )
+        #md = np.concatenate((np.zeros((1,)), wp.loc[:, depth].values))
+        #dev = np.concatenate((np.zeros((1,)), wp.loc[:, inclination].values[:-1]))
+
+        md = wp.loc[:, depth].values
+        dev = wp.loc[:, inclination].values[:-1]
 
         # Find out how to find this value
         kb = float(configs["datum"])  # meters
