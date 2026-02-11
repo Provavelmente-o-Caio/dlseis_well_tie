@@ -127,8 +127,9 @@ class Basic_well_tie:
             seis = np.squeeze(segyio.tools.cube(f))
         return grid.Seismic(seis, twt, "twt")
 
-    def import_well_path(self, path_path, data) -> grid.WellPath:
+    def import_well_path(self, path_path, data, config) -> grid.WellPath:
         file_path = Path(path_path)
+        configs = config["Path"]
 
         wp = pd.read_csv(
             file_path,
@@ -139,17 +140,30 @@ class Basic_well_tie:
             engine="python",
         )
 
-        # Find out how to find this value
-        kb = 0
-
-        tvd = grid.WellPath.get_tvdkb_from_inclination(
-            wp.loc[:, data["Path"][0]].values, wp.loc[:, data["Path"][1]].values[:-1]
+        md = np.concatenate(
+            (
+                np.zeros(
+                    1,
+                )
+            ),
+            wp.loc[:, data["Path"][0]].values,
+        )
+        dev = np.concatenate(
+            (
+                np.zeros(
+                    1,
+                )
+            ),
+            wp.loc[:, data["Path"][1]].values[:-1],
         )
 
+        # Find out how to find this value
+        kb = float(configs["datum"])  # meters
+
+        tvd = grid.WellPath.get_tvdkb_from_inclination(md, dev)
         tvd = grid.WellPath.tvdkb_to_tvdss(tvd, kb)
 
-        # TODO: Find out how to find depth
-        return grid.WellPath(md=wp.loc[:, data["Path"][0]].values, tvdss=tvd, kb=kb)
+        return grid.WellPath(md=md, tvdss=tvd, kb=kb)
 
     def import_time_depth_table(self, table_path, data, config) -> grid.TimeDepthTable:
         file_path = Path(table_path)
