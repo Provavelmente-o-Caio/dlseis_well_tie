@@ -1,0 +1,44 @@
+{
+  "Logs": {
+    "VP": "DTCO",
+    "VS": "DTSM",
+    "Rho": "RHOB",
+    "Cali": "HDAR",
+    "Start_range": "6050",
+    "End_range": "60"
+  },
+  "Path": [
+    "Depth",
+    "Dev"
+  ],
+  "Table": [
+    "OWT",
+    "TVD SS"
+  ],
+  "Entire_Logs": [
+    "DTCO",
+    "DTSM",
+    "ECGR",
+    "HDAR",
+    "RD",
+    "RHOB",
+    "RS",
+    "TNPH"
+  ],
+  "Entire_Path": [
+    "Depth",
+    "Dev",
+    "Aziuth",
+    "Depth2",
+    "Dev2",
+    "Aziuth2"
+  ],
+  "Entire_Table": [
+    "Depth",
+    "TVD SS",
+    "OWT",
+    "Depth2",
+    "TVD SS2",
+    "OWT2"
+  ]
+}
