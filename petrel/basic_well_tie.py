@@ -4,7 +4,6 @@ import segyio
 import lasio
 import yaml
 import sys
-import warnings
 import json
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
@@ -13,26 +12,38 @@ from matplotlib.ticker import MaxNLocator
 from pathlib import Path
 
 from wtie import grid, viz, autotie
+from wtie.processing.grid import LogSet, Seismic, TimeDepthTable, WellPath
 from wtie.processing.logs import interpolate_nans, despike
 from wtie.utils.datasets import tutorial
 from wtie.utils.datasets.utils import InputSet
 
 EXPECTED_ARGUMENTS = 6
 
+
 class Basic_well_tie:
-    def __init__(self, logs_path, seis_path, path_path, table_path, data_path, config_path) -> None:
+    def __init__(
+        self,
+        logs_path: str,
+        seis_path: str,
+        path_path: str,
+        table_path: str,
+        data_path: str,
+        config_path: str,
+    ) -> None:
         with open(data_path, "r") as f:
             data = json.load(f)
 
         with open(config_path, "r") as f:
             config = json.load(f)
 
-        self.las_logs = self.import_las_logs(logs_path, data)
-        self.seis = self.import_seismic(seis_path)
-        self.path = self.import_well_path(path_path, data)
-        self.td_table = self.import_time_depth_table(table_path, data, config)
+        self.las_logs: LogSet = self.import_las_logs(logs_path, data, config)
+        self.seis: Seismic = self.import_seismic(seis_path)
+        self.path: WellPath = self.import_well_path(path_path, data)
+        self.td_table: TimeDepthTable = self.import_time_depth_table(
+            table_path, data, config
+        )
 
-    def import_las_logs(self, file_path, data) -> grid.LogSet:
+    def import_las_logs(self, file_path, data, config) -> grid.LogSet:
         file_path = Path(file_path)
 
         log_data = data["Logs"]
@@ -43,52 +54,45 @@ class Basic_well_tie:
 
         log_dict = {}
 
-        start_burn = int(log_data["Start_range"])
-        end_burn = int(log_data["End_range"])
-
+        # loading configs
+        start_burn = int(config["Start_range"])
+        end_burn = int(config["End_range"])
+        las_unit = config["las_unit"]
 
         # Vp
-        #TODO: Aplicar conversões de unidade de medida de maneira não manual
-
         vp_curve = log_data["VP"]  # ex: "DTCO"
         sonic = las_logs[vp_curve].values[start_burn:-end_burn]
-        sonic = 1/sonic
-        sonic *= 1e6
-        sonic /= 3.2808
+        sonic = self.convert_to_mps(sonic, las_unit)
         md = las_logs[vp_curve].index.values[start_burn:-end_burn]
 
-        log_dict['Vp'] = grid.Log(
-            sonic, 
-            md, 
-            "md", 
+        log_dict["Vp"] = grid.Log(
+            sonic,
+            md,
+            "md",
             name="Vp",
         )
-
 
         # Vs
         vs_curve = log_data["VS"]  # "DTSM"
         shear = las_logs[vs_curve].values[start_burn:-end_burn]
-        shear = 1 / shear  # ft/us
-        shear *= 1e6  # ft/s
-        shear /= 3.2808  # m/s
+        shear = self.convert_to_mps(shear, las_unit)
         md = las_logs[vs_curve].index.values[start_burn:-end_burn]
 
-        log_dict['Vs'] = grid.Log(
-            shear, 
-            md, 
-            "md", 
+        log_dict["Vs"] = grid.Log(
+            shear,
+            md,
+            "md",
             name="Vs",
         )
-
 
         # Rho
         rho_curve = log_data["Rho"]  # "RHOB"
         rho = interpolate_nans(las_logs[rho_curve].values[start_burn:-end_burn])
         md = las_logs[rho_curve].index[start_burn:-end_burn]
 
-        log_dict['Rho'] = grid.Log(
-            rho, 
-            md, 
+        log_dict["Rho"] = grid.Log(
+            rho,
+            md,
             "md",
             name="Rho",
         )
@@ -96,48 +100,49 @@ class Basic_well_tie:
         # GR opcional
         if "GR" in log_data and log_data["GR"] != "":
             gr_curve = log_data["GR"]
-            log_dict['GR'] = grid.Log(
-                interpolate_nans(las_logs[gr_curve].values[start_burn:-end_burn]), 
-                las_logs[gr_curve].index.values[start_burn:-end_burn], 
-                "md"
+            log_dict["GR"] = grid.Log(
+                interpolate_nans(las_logs[gr_curve].values[start_burn:-end_burn]),
+                las_logs[gr_curve].index.values[start_burn:-end_burn],
+                "md",
             )
 
         # Caliper opcional
         if "Cali" in log_data and log_data["Cali"] != "":
             cali_curve = log_data["Cali"]
-            log_dict['Cali'] = grid.Log(
-                las_logs[cali_curve].values[start_burn:-end_burn], 
-                las_logs[cali_curve].index.values[start_burn:-end_burn], 
-                "md"
+            log_dict["Cali"] = grid.Log(
+                las_logs[cali_curve].values[start_burn:-end_burn],
+                las_logs[cali_curve].index.values[start_burn:-end_burn],
+                "md",
             )
-            
-            
+
         return grid.LogSet(log_dict)
 
     def import_seismic(self, seis_path) -> grid.Seismic:
         # only works if not prestack
         file_path = Path(seis_path)
 
-        with segyio.open(file_path, 'r') as f:
+        with segyio.open(file_path, "r") as f:
             twt = f.samples / 1000
             seis = np.squeeze(segyio.tools.cube(f))
-        return grid.Seismic(seis, twt, 'twt')
+        return grid.Seismic(seis, twt, "twt")
 
     def import_well_path(self, path_path, data) -> grid.WellPath:
         file_path = Path(path_path)
 
-        print(data)
-        print(json.dumps(data, indent=4))
-        print(data["Path"])
-
-        wp = pd.read_csv(file_path, header=1, delimiter=r"\s+", usecols=range(1, len(data["Entire_Path"]) + 1), names=data["Entire_Path"], engine="python")
+        wp = pd.read_csv(
+            file_path,
+            header=1,
+            delimiter=r"\s+",
+            usecols=range(1, len(data["Entire_Path"]) + 1),
+            names=data["Entire_Path"],
+            engine="python",
+        )
 
         # Find out how to find this value
         kb = 0
 
         tvd = grid.WellPath.get_tvdkb_from_inclination(
-            wp.loc[:, data["Path"][0]].values,
-            wp.loc[:, data["Path"][1]].values[:-1]
+            wp.loc[:, data["Path"][0]].values, wp.loc[:, data["Path"][1]].values[:-1]
         )
 
         tvd = grid.WellPath.tvdkb_to_tvdss(tvd, kb)
@@ -148,12 +153,18 @@ class Basic_well_tie:
     def import_time_depth_table(self, table_path, data, config) -> grid.TimeDepthTable:
         file_path = Path(table_path)
 
-        td = pd.read_csv(file_path, header=None, sep=r"\s+", skiprows=[0, 1], names=data["Entire_Table"])
+        td = pd.read_csv(
+            file_path,
+            header=None,
+            sep=r"\s+",
+            skiprows=[0, 1],
+            names=data["Entire_Table"],
+        )
 
-        print(len(data["Entire_Table"])+1)
+        print(len(data["Entire_Table"]) + 1)
 
         if bool(config["isOWT"]):
-            twt = td.loc[:, data["Table"][0]].values * 2 # owt to twt
+            twt = td.loc[:, data["Table"][0]].values * 2  # owt to twt
         else:
             twt = td.loc[:, data["Table"][0]].values
 
@@ -180,7 +191,12 @@ class Basic_well_tie:
         )
 
     def well_tie(self):
-        inputs = InputSet(logset_md=self.las_logs, seismic=self.seis, wellpath=self.path, table=self.td_table)
+        inputs = InputSet(
+            logset_md=self.las_logs,
+            seismic=self.seis,
+            wellpath=self.path,
+            table=self.td_table,
+        )
 
         model_state_dict = Path("../data/tutorial/trained_net_state_dict.pt")
         assert model_state_dict.is_file()
@@ -292,19 +308,81 @@ class Basic_well_tie:
         )
         plt.show()
 
+    def convert_to_mps(values, unit: str):
+        """
+        Convert LAS log velocity/sonic units to m/s.
+
+        Supported:
+          - us/ft
+          - us/m
+          - ft/s
+          - m/s
+          - km/s
+          - s/m (slowness)
+        """
+
+        if values is None:
+            return values
+
+        u = unit.strip().lower()
+
+        values = np.asarray(values, dtype=float)
+
+        if u in ["m/s", "mps"]:
+            return values
+
+        # ---- slowness ----
+        if u in ["us/ft", "µs/ft"]:
+            v = 1.0 / values  # ft/us
+            v *= 1e6  # ft/s
+            v *= 0.3048  # m/s
+            return v
+
+        if u in ["us/m", "µs/m"]:
+            v = 1.0 / values  # m/us
+            v *= 1e6  # m/s
+            return v
+
+        if u in ["s/m"]:
+            return 1.0 / values
+
+        # ---- velocity ----
+        if u in ["ft/s", "fps"]:
+            return values * 0.3048
+
+        if u in ["km/s"]:
+            return values * 1000.0
+
+        raise ValueError(f"Unsupported unit for velocity conversion: '{unit}'")
+
+
 if __name__ == "__main__":
     if len(sys.argv) >= EXPECTED_ARGUMENTS + 1:
-        _, log_path, seismic_path, wellpath_path, td_table_path, data_path, config_path = sys.argv
+        (
+            _,
+            log_path,
+            seismic_path,
+            wellpath_path,
+            td_table_path,
+            data_path,
+            config_path,
+        ) = sys.argv
 
-        wt = Basic_well_tie(log_path, seismic_path, wellpath_path, td_table_path, data_path, config_path)
+        wt = Basic_well_tie(
+            log_path, seismic_path, wellpath_path, td_table_path, data_path, config_path
+        )
         wt.well_tie()
     else:
         print("[ERRO] Argumentos insuficientes!")
         print(f"\nEsperado: 6 argumentos, recebido: {len(sys.argv) - 1}")
         print("\nUso:")
-        print("  python teste.py LOG_PATH SEISMIC_PATH WELLPATH_PATH "
-              "TD_TABLE_PATH DATA_JSON CONFIG_JSON")
+        print(
+            "  python teste.py LOG_PATH SEISMIC_PATH WELLPATH_PATH "
+            "TD_TABLE_PATH DATA_JSON CONFIG_JSON"
+        )
         print("\nExemplo:")
-        print("  python teste.py data/logs.las data/seismic.sgy data/path.txt "
-              "data/table.txt data.json config.json")
+        print(
+            "  python teste.py data/logs.las data/seismic.sgy data/path.txt "
+            "data/table.txt data.json config.json"
+        )
         sys.exit(1)

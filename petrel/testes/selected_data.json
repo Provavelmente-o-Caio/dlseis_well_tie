@@ -3,9 +3,7 @@
     "VP": "DTCO",
     "VS": "DTSM",
     "Rho": "RHOB",
-    "Cali": "HDAR",
-    "Start_range": "6050",
-    "End_range": "60"
+    "Cali": "HDAR"
   },
   "Path": [
     "Depth",
