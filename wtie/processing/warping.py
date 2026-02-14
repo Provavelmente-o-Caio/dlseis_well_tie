@@ -29,7 +29,7 @@ from scipy.interpolate import interp1d
 
 # def _compute_lags_from_path(path: List[Tuple], ref_trace: np.ndarray) -> np.ndarray:
 #     """path as computed by the library dtaidistance"""
-#     lags_idx = np.zeros_like(ref_trace, dtype=np.int)
+#     lags_idx = np.zeros_like(ref_trace, dtype=int)
 
 #     j_pointer = 0
 #     for i in range(ref_trace.size):
@@ -64,7 +64,7 @@ def dynamic_lag(s1: np.ndarray,
     """Compute per-sample lag bewtween reference s1 trace and s2 trace.
     TODO: numba"""
     assert s1.size == s2.size
-    lags_idx = np.zeros((s1.size,), dtype=np.int)
+    lags_idx = np.zeros((s1.size,), dtype=int)
 
     assert max_lag_idx < window_lenght // 2
 
@@ -129,7 +129,7 @@ def post_process_lags_index(lags: np.ndarray,
         if diff < 0:
             lags[i] -= diff
 
-    return lags.astype(np.int)
+    return lags.astype(int)
 
 
 

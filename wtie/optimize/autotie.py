@@ -324,13 +324,26 @@ def _search_best_params_v1(inputs: InputSet,
     ax_client = _optimizer.create_ax_client(
         num_iters, random_ratio=random_ratio)
 
-    ax_client.create_experiment(
-        name="auto well tie",
-        parameters=search_space,
-        objective_name="goodness_of_match",
-        minimize=False,
-        choose_generation_strategy_kwargs=None
-    )
+    # Create experiment: prefer new AxClient signature (`objectives`),
+    # fall back to older `objective_name`/`minimize` kwargs if necessary.
+    try:
+        from ax.service.utils.instantiation import ObjectiveProperties
+
+        objectives = {"goodness_of_match": ObjectiveProperties(minimize=False)}
+        ax_client.create_experiment(
+            parameters=search_space,
+            name="auto well tie",
+            objectives=objectives,
+            choose_generation_strategy_kwargs=None,
+        )
+    except TypeError:
+        ax_client.create_experiment(
+            name="auto well tie",
+            parameters=search_space,
+            objective_name="goodness_of_match",
+            minimize=False,
+            choose_generation_strategy_kwargs=None,
+        )
 
     # Optimization
     print("Search for optimal parameters")

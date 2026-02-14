@@ -156,7 +156,8 @@ class BaseTrace(BaseObject):
     
     @basis.setter
     def basis(self, new_value):
-        self.series.set_axis(new_value,inplace=True)
+        # pandas.Series.set_axis signature changed; assign the index directly
+        self.series.index = pd.Index(data=new_value, name=self.basis_type)
 
     def __len__(self):
         return self.size

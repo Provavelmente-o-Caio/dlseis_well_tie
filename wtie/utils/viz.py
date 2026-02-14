@@ -1222,7 +1222,7 @@ def plot_warping(ref_trace: grid.BaseTrace,
     lines = []
     line_options = {'linewidth': 0.5, 'color': 'orange', 'alpha': 0.8}
 
-    lags_idx = np.round(lags.values / lags.sampling_rate).astype(np.int)
+    lags_idx = np.round(lags.values / lags.sampling_rate).astype(int)
     path = [(i, i+lag) for i, lag in enumerate(lags_idx)]
 
     for r_c, c_c in path:

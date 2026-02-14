@@ -232,7 +232,7 @@ def warp_trace(trace: grid.BaseTrace, lags: grid.DynamicLag,
     assert trace.basis_type == lags.basis_type
     assert np.allclose(trace.basis, lags.basis, atol=1e-3)
 
-    lags_idx = np.round(lags.values / trace.sampling_rate).astype(np.int)
+    lags_idx = np.round(lags.values / trace.sampling_rate).astype(int)
     new_values, new_indices = _warping.warp(trace.values, lags_idx, return_indices=True)
     #new_basis = ... #???
     return grid.update_trace_values(new_values, trace) # assumes same basis

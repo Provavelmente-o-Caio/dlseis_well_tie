@@ -6,8 +6,46 @@ from tqdm import tqdm
 
 
 from ax.service.ax_client import AxClient
-from ax.modelbridge.registry import Models as ax_Models
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+
+# ax-platform moved/renamed some modules across versions. Try the
+# historical import first, then fall back to the newer location used
+# in some distributions (factory). Provide a clear error if neither
+# is available so users know to adjust their ax-platform install.
+try:
+    from ax.modelbridge.registry import Models as ax_Models
+    from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+except ModuleNotFoundError:
+    try:
+        from ax.modelbridge.factory import Models as ax_Models
+        from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+    except ModuleNotFoundError:
+        try:
+            from ax.adapter.registry import Generators as ax_Models
+            from ax.generation_strategy.generation_strategy import (
+                GenerationStep,
+                GenerationStrategy,
+            )
+        except ModuleNotFoundError:
+            raise ImportError(
+                "Could not import ax.modelbridge registry or factory, "
+                "nor ax.adapter.registry/ax.generation_strategy. "
+                "Install a compatible ax-platform version or adjust imports."
+            )
+
+# Normalize/respect different Models/Generators names across ax versions
+def _resolve_model_enum(models_enum, *names):
+    for n in names:
+        if hasattr(models_enum, n):
+            return getattr(models_enum, n)
+    return None
+
+AX_SOBOL = _resolve_model_enum(ax_Models, "SOBOL", "Sobol")
+AX_BOTORCH = _resolve_model_enum(ax_Models, "BOTORCH", "BOTORCH_MODULAR", "BoTorch")
+if AX_BOTORCH is None:
+    raise ImportError(
+        "Could not find a BoTorch generator in ax Models/Generators (tried 'BOTORCH','BOTORCH_MODULAR','BoTorch'). "
+        "Install a compatible ax-platform or adjust the code."
+    )
 
 import wtie
 
@@ -319,8 +357,8 @@ def select_best_wavelet(
 
     ax_gen_startegy = GenerationStrategy(
         [
-            GenerationStep(ax_Models.SOBOL, num_trials=n_sobol),
-            GenerationStep(ax_Models.BOTORCH, num_trials=n_bayes),
+            GenerationStep(AX_SOBOL, num_trials=n_sobol),
+            GenerationStep(AX_BOTORCH, num_trials=n_bayes),
         ]
     )
 
@@ -336,13 +374,24 @@ def select_best_wavelet(
     search_space = [choice]
 
     # Maximization
-    ax_client.create_experiment(
-        name="wavelet_distribution_choice",
-        parameters=search_space,
-        objective_name="choice_performance",
-        minimize=False,
-        choose_generation_strategy_kwargs=None,
-    )
+    try:
+        from ax.service.utils.instantiation import ObjectiveProperties
+
+        objectives = {"choice_performance": ObjectiveProperties(minimize=False)}
+        ax_client.create_experiment(
+            parameters=search_space,
+            name="wavelet_distribution_choice",
+            objectives=objectives,
+            choose_generation_strategy_kwargs=None,
+        )
+    except TypeError:
+        ax_client.create_experiment(
+            name="wavelet_distribution_choice",
+            parameters=search_space,
+            objective_name="choice_performance",
+            minimize=False,
+            choose_generation_strategy_kwargs=None,
+        )
 
     noise_level = (noise_perc / 100) * np.std(seismic)
     noise1_ = np.random.normal(scale=noise_level, size=seismic.shape)
@@ -390,8 +439,8 @@ def scale_wavelet(
 
     ax_gen_startegy = GenerationStrategy(
         [
-            GenerationStep(ax_Models.SOBOL, num_trials=n_sobol),
-            GenerationStep(ax_Models.BOTORCH, num_trials=n_bayes),
+            GenerationStep(AX_SOBOL, num_trials=n_sobol),
+            GenerationStep(AX_BOTORCH, num_trials=n_bayes),
         ]
     )
 
@@ -403,13 +452,24 @@ def scale_wavelet(
 
     search_space = [scaler]
 
-    ax_client.create_experiment(
-        name="wavelet_absolute_scale_estimation",
-        parameters=search_space,
-        objective_name="scaling_loss",
-        minimize=True,
-        choose_generation_strategy_kwargs=None,
-    )
+    try:
+        from ax.service.utils.instantiation import ObjectiveProperties
+
+        objectives = {"scaling_loss": ObjectiveProperties(minimize=True)}
+        ax_client.create_experiment(
+            parameters=search_space,
+            name="wavelet_absolute_scale_estimation",
+            objectives=objectives,
+            choose_generation_strategy_kwargs=None,
+        )
+    except TypeError:
+        ax_client.create_experiment(
+            name="wavelet_absolute_scale_estimation",
+            parameters=search_space,
+            objective_name="scaling_loss",
+            minimize=True,
+            choose_generation_strategy_kwargs=None,
+        )
 
     noise_level = (noise_perc / 100) * np.std(seismic.values)
     seismic_energy = _similarity.energy(seismic.values)
