@@ -1,13 +1,14 @@
 {
-    "Logs": {
-        "las_unit": "us/ft",
-        "Start_range": "6050",
-        "End_range": "60"
-    },
-    "Path": {
-        "datum": "0"
-    },
-    "Table": {
-        "isOWT": true
-    }
+  "Logs": {
+    "las_unit": "us/ft",
+    "Start_range": "6050",
+    "End_range": "60"
+  },
+  "Path": {
+    "datum": "0"
+  },
+  "Table": {
+    "isOWT": true,
+    "Unit": "m"
+  }
 }

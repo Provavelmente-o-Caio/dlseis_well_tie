@@ -138,11 +138,11 @@ class Basic_well_tie:
             names=data["Entire_Path"],
             engine="python",
         )
-        
+
         depth, inclination = data["Path"][0], data["Path"][1]
 
-        #md = np.concatenate((np.zeros((1,)), wp.loc[:, depth].values))
-        #dev = np.concatenate((np.zeros((1,)), wp.loc[:, inclination].values[:-1]))
+        # md = np.concatenate((np.zeros((1,)), wp.loc[:, depth].values))
+        # dev = np.concatenate((np.zeros((1,)), wp.loc[:, inclination].values[:-1]))
 
         md = wp.loc[:, depth].values
         dev = wp.loc[:, inclination].values[:-1]
@@ -150,8 +150,16 @@ class Basic_well_tie:
         # Find out how to find this value
         kb = float(configs["datum"])  # meters
 
-        tvd = grid.WellPath.get_tvdkb_from_inclination(md, dev)
-        tvd = grid.WellPath.tvdkb_to_tvdss(tvd, kb)
+        try:
+            tvd = grid.WellPath.get_tvdkb_from_inclination(md, dev)
+            tvd = grid.WellPath.tvdkb_to_tvdss(tvd, kb)
+        except AssertionError:
+            md = np.concatenate((np.zeros((1,)), md))
+            dev = np.concatenate((np.zeros((1,)), dev))
+            tvd = grid.WellPath.get_tvdkb_from_inclination(md, dev)
+            tvd = grid.WellPath.tvdkb_to_tvdss(tvd, kb)
+        except Exception as e:
+            print(f"An error occurred: {e}")
 
         return grid.WellPath(md=md, tvdss=tvd, kb=kb)
 
@@ -159,20 +167,31 @@ class Basic_well_tie:
         file_path = Path(table_path)
         configs = config["Table"]
 
-        td = pd.read_csv(
-            file_path,
-            header=None,
-            sep=r"\s+",
-            skiprows=[0, 1],
-            names=data["Entire_Table"],
-        )
+        file_extension = file_path.suffix.lower()
+
+        if file_extension == ".las":
+            td = lasio.read(file_path).df()
+        else:
+            td = pd.read_csv(
+                file_path,
+                header=None,
+                sep=r"\s+",
+                skiprows=[0, 1],
+                names=data["Entire_Table"],
+            )
 
         if bool(configs["isOWT"]):
             twt = td.loc[:, data["Table"][0]].values * 2  # owt to twt
         else:
             twt = td.loc[:, data["Table"][0]].values
-
         tvdss = td.loc[:, data["Table"][1]].values
+        # remove nans
+        good_idx = np.where(~np.isnan(twt))[0]
+        twt = twt[good_idx]
+        tvdss = tvdss[good_idx]
+
+        if configs["Unit"] == "ms":
+            twt /= 1000
 
         return grid.TimeDepthTable(twt=twt, tvdss=tvdss)
 
