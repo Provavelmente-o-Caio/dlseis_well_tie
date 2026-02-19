@@ -1,0 +1,44 @@
+{
+  "Logs": {
+    "VP": "BATC",
+    "VS": "DTS",
+    "Rho": "RHOZ",
+    "GR": "GR"
+  },
+  "Path": [
+    "Depth",
+    "Dev"
+  ],
+  "Table": [
+    "TIME",
+    "TVD"
+  ],
+  "Entire_Logs": [
+    "DTS",
+    "GR",
+    "HDAR",
+    "HTNP",
+    "RD",
+    "RHOZ",
+    "RS",
+    "BATC"
+  ],
+  "Entire_Path": [
+    "Depth",
+    "Dev",
+    "Aziuth",
+    "Depth2",
+    "Dev2",
+    "Aziuth2"
+  ],
+  "Entire_Table": [
+    "MD",
+    "TVD",
+    "TIME",
+    "DT",
+    "DTC_CS",
+    "RHO_CS",
+    "VEL_CS",
+    "AIMP_CS"
+  ]
+}
