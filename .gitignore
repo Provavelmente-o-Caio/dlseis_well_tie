@@ -32,3 +32,4 @@ experiments/optim/*
 !experiments/optim/uncompress_archive.sh
 !experiments/optim/compress_dir.sh
 
+.venv/
