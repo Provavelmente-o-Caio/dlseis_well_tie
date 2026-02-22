@@ -1,33 +1,38 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-set CONDA_ENV_ZIP=dlseis_well_tie.zip
-set PATH_CONDA=D:\anaconda3
+set ENV_ZIP=dlseis_well_tie.zip
 set EXTRACT_PATH=%AppData%
-set SCRIPT_PATH=%EXTRACT_PATH%\dlseis_well_tie\petrel\basic_well_path.py
+set PROJECT_PATH=%EXTRACT_PATH%\dlseis_well_tie
+set VENV_PATH=%PROJECT_PATH%\.venv
+set SCRIPT_PATH=%PROJECT_PATH%\petrel\basic_well_path.py
+set REQUIREMENTS=%PROJECT_PATH%\requirements.txt
 set WRAPPER_PATH=%~dp0run_isolated.py
 
 if not exist "%SCRIPT_PATH%" (
     echo [INFO] Descompactando ambiente...
-    "%~dp07z.exe" x "%~dp0%CONDA_ENV_ZIP%" -o"%EXTRACT_PATH%"
+    "%~dp07z.exe" x "%~dp0%ENV_ZIP%" -o"%EXTRACT_PATH%"
 )
 
-echo [INFO] Ativando Conda...
-call "%PATH_CONDA%\Scripts\activate.bat"
-
-if not exist "%PATH_CONDA%\envs\wtie" (
-    echo [INFO] Criando ambiente wtie...
-    call conda env create -f "%EXTRACT_PATH%\dlseis_well_tie\enviroment_windows.yml"
+if not exist "%VENV_PATH%" (
+    echo [INFO] Criando ambiente virtual...
+    python -m venv "%VENV_PATH%"
+    
+    echo [INFO] Instalando dependencias...
+    call "%VENV_PATH%\Scripts\activate.bat"
+    python -m pip install --upgrade pip
+    pip install -r "%REQUIREMENTS%"
+) else (
+    echo [INFO] Ativando ambiente virtual...
+    call "%VENV_PATH%\Scripts\activate.bat"
 )
-
-echo [INFO] Ativando ambiente wtie...
-call conda activate wtie
 
 echo.
 echo ========================================
 echo DIAGNOSTICO PRE-EXECUCAO
 echo ========================================
 python --version
+pip --version
 where hdf5.dll 2>nul
 echo ========================================
 echo.
@@ -44,6 +49,6 @@ if !EXIT_CODE! equ 0 (
     echo [ERRO] Script terminou com codigo: !EXIT_CODE!
 )
 
-call conda deactivate
+call deactivate
 endlocal
 exit /b !EXIT_CODE!
