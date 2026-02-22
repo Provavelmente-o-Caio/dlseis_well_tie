@@ -3,20 +3,19 @@ import sys
 from pathlib import Path
 
 import lasio
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import segyio
 import yaml
-from matplotlib.ticker import MaxNLocator
 
-from wtie import autotie, grid, viz
+from wtie import autotie, grid
 from wtie.processing.grid import LogSet, Seismic, TimeDepthTable, WellPath
-from wtie.processing.logs import despike, interpolate_nans
+from wtie.processing.logs import interpolate_nans
+from wtie.processing.spectral import compute_spectrum
 from wtie.utils.datasets import tutorial
 from wtie.utils.datasets.utils import InputSet
 
-EXPECTED_ARGUMENTS = 6
+EXPECTED_ARGUMENTS = 7
 
 
 class Basic_well_tie:
@@ -28,6 +27,7 @@ class Basic_well_tie:
         table_path: str,
         data_path: str,
         config_path: str,
+        output_path: str,
     ) -> None:
         with open(data_path, "r") as f:
             data = json.load(f)
@@ -41,6 +41,7 @@ class Basic_well_tie:
         self.td_table: TimeDepthTable = self.import_time_depth_table(
             table_path, data, config
         )
+        self.output_path = Path(output_path)
 
     def import_las_logs(self, file_path, data, config) -> grid.LogSet:
         file_path = Path(file_path)
@@ -280,22 +281,6 @@ class Basic_well_tie:
         best_parameters, values = outputs.ax_client.get_best_parameters()
         means, covariances = values
 
-        outputs.plot_optimization_objective()
-
-        fig, axes = outputs.plot_wavelet(fmax=85, phi_max=15, figsize=(6, 5))
-        axes[0].set_xlim((-0.1, 0.1))
-        axes[2].set_ylim((-12.5, 12.5))
-        fig.tight_layout()
-
-        _scale = 120000
-        fig, axes = outputs.plot_tie_window(wiggle_scale=_scale, figsize=(12.0, 7.5))
-
-        fig, ax = viz.plot_td_table(inputs.table, plot_params=dict(label="original"))
-        viz.plot_td_table(
-            outputs.table, plot_params=dict(label="modified"), fig_axes=(fig, ax)
-        )
-        ax.legend(loc="best")
-
         s_and_s_params = dict(window_length=0.060, max_lag=0.010)  # in seconds
 
         outputs2 = autotie.stretch_and_squeeze(
@@ -308,24 +293,105 @@ class Basic_well_tie:
             s_and_s_params,
         )
 
-        fig, axes = outputs2.plot_wavelet(fmax=85, phi_max=25, figsize=(6, 5))
-        axes[0].set_xlim((-0.1, 0.1))
-        axes[2].set_ylim((-6.0, 12.5))
-        fig.tight_layout()
-
-        fig, axes = outputs2.plot_tie_window(wiggle_scale=_scale, figsize=(12.0, 7.5))
-        axes[0].xaxis.set_major_locator(MaxNLocator(nbins=2))
-
-        fig, ax = viz.plot_td_table(inputs.table, plot_params=dict(label="original"))
-        viz.plot_td_table(
-            outputs2.table, plot_params=dict(label="modified"), fig_axes=(fig, ax)
+        self.export_output(
+            outputs, self.output_path, best_parameters, means, covariances
         )
-        ax.legend(loc="best")
 
-        fig, ax = viz.plot_warping(
-            outputs.synth_seismic, outputs.seismic, outputs2.dlags
+    def export_output(
+        self,
+        output: autotie.OutputSet,
+        output_path: Path,
+        best_parameters: dict,
+        means: dict,
+        covariances: dict,
+    ):
+        result = {}
+
+        # Wavelet data
+        wavelet = output.wavelet
+        ff, ampl, _, phase = compute_spectrum(
+            wavelet.values, wavelet.sampling_rate, to_degree=True
         )
-        plt.show()
+        ampl /= ampl.max()
+
+        result["wavelet"] = {
+            "basis": wavelet.basis.tolist()
+            if hasattr(wavelet.basis, "tolist")
+            else wavelet.basis,
+            "values": wavelet.values.tolist()
+            if hasattr(wavelet.values, "tolist")
+            else wavelet.values,
+            "sampling_rate": float(wavelet.sampling_rate),
+            "frequency": ff.tolist() if hasattr(ff, "tolist") else ff,
+            "amplitude": ampl.tolist() if hasattr(ampl, "tolist") else ampl,
+            "phase": phase.tolist() if hasattr(phase, "tolist") else phase,
+        }
+
+        # Tie window data (synthetic seismic vs real seismic)
+        result["tie_window"] = {
+            "ai": output.logset_twt.AI.tolist()
+            if hasattr(output.logset_twt.AI, "tolist")
+            else output.logset_twt.AI,
+            "r0": output.r.tolist() if hasattr(output.r, "tolist") else output.r,
+            "synthetic_seismic": output.synth_seismic.tolist()
+            if hasattr(output.synth_seismic, "tolist")
+            else output.synth_seismic,
+            "real_seismic": output.seismic.tolist()
+            if hasattr(output.seismic, "tolist")
+            else output.seismic,
+            "time_twt": output.twt.tolist()
+            if hasattr(output.twt, "tolist")
+            else output.twt,
+        }
+
+        # Time-Depth Table data
+        result["td_table"] = {
+            "original": {
+                "twt": self.td_table.twt.tolist()
+                if hasattr(self.td_table.twt, "tolist")
+                else self.td_table.twt,
+                "tvdss": self.td_table.tvdss.tolist()
+                if hasattr(self.td_table.tvdss, "tolist")
+                else self.td_table.tvdss,
+            },
+            "modified": {
+                "twt": output.table.twt.tolist()
+                if hasattr(output.table.twt, "tolist")
+                else output.table.twt,
+                "tvdss": output.table.tvdss.tolist()
+                if hasattr(output.table.tvdss, "tolist")
+                else output.table.tvdss,
+            },
+        }
+
+        # Warping Path data
+        result["warping_path"] = {
+            "dlags": output.dlags.tolist()
+            if hasattr(output.dlags, "tolist")
+            else output.dlags,
+            "time_twt": output.twt.tolist()
+            if hasattr(output.twt, "tolist")
+            else output.twt,
+        }
+
+        # Best parameters from optimization
+        result["optimization"] = {
+            "best_parameters": {
+                k: float(v) if isinstance(v, (int, float, np.number)) else v
+                for k, v in best_parameters.items()
+            },
+            "means": means,
+            "covariances": covariances,
+        }
+
+        # Export to JSON
+        output_file = output_path / "well_tie_results.json"
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(output_file, "w") as f:
+            json.dump(result, f, indent=2)
+
+        print(f"RESULTS_JSON:{output_file.name}")
 
     def convert_to_mps(self, values, unit: str):
         """
@@ -385,15 +451,22 @@ if __name__ == "__main__":
             td_table_path,
             data_path,
             config_path,
+            output_path,
         ) = sys.argv
 
         wt = Basic_well_tie(
-            log_path, seismic_path, wellpath_path, td_table_path, data_path, config_path
+            log_path,
+            seismic_path,
+            wellpath_path,
+            td_table_path,
+            data_path,
+            config_path,
+            output_path,
         )
         wt.well_tie()
     else:
         print("[ERRO] Argumentos insuficientes!")
-        print(f"\nEsperado: 6 argumentos, recebido: {len(sys.argv) - 1}")
+        print(f"\nEsperado: 7 argumentos, recebido: {len(sys.argv) - 1}")
         print("\nUso:")
         print(
             "  python teste.py LOG_PATH SEISMIC_PATH WELLPATH_PATH "
