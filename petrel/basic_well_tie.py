@@ -333,15 +333,15 @@ class Basic_well_tie:
             if hasattr(output.logset_twt.AI, "tolist")
             else output.logset_twt.AI,
             "r0": output.r.tolist() if hasattr(output.r, "tolist") else output.r,
-            "synthetic_seismic": output.synth_seismic.tolist()
-            if hasattr(output.synth_seismic, "tolist")
-            else output.synth_seismic,
-            "real_seismic": output.seismic.tolist()
-            if hasattr(output.seismic, "tolist")
-            else output.seismic,
-            "time_twt": output.twt.tolist()
-            if hasattr(output.twt, "tolist")
-            else output.twt,
+            "synthetic_seismic": output.synth_seismic.values.tolist()
+            if hasattr(output.synth_seismic.values, "tolist")
+            else output.synth_seismic.values,
+            "real_seismic": output.seismic.values.tolist()
+            if hasattr(output.seismic.values, "tolist")
+            else output.seismic.values,
+            "time_twt": output.synth_seismic.basis.tolist()
+            if hasattr(output.synth_seismic.basis, "tolist")
+            else output.synth_seismic.basis,
         }
 
         # Time-Depth Table data
@@ -366,12 +366,12 @@ class Basic_well_tie:
 
         # Warping Path data
         result["warping_path"] = {
-            "dlags": output.dlags.tolist()
-            if hasattr(output.dlags, "tolist")
-            else output.dlags,
-            "time_twt": output.twt.tolist()
-            if hasattr(output.twt, "tolist")
-            else output.twt,
+            "dlags": output.dlags.values.tolist()
+            if hasattr(output.dlags.values, "tolist")
+            else output.dlags.values,
+            "time_twt": output.synth_seismic.basis.tolist()
+            if hasattr(output.synth_seismic.basis, "tolist")
+            else output.synth_seismic.basis,
         }
 
         # Best parameters from optimization
