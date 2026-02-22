@@ -43,3 +43,5 @@ ax-platform>=0.3.0
 torch
 torchvision
 torchaudio
+
+multimethod
