@@ -294,7 +294,7 @@ class Basic_well_tie:
         )
 
         self.export_output(
-            outputs, self.output_path, best_parameters, means, covariances
+            outputs2, self.output_path, best_parameters, means, covariances
         )
 
     def export_output(
