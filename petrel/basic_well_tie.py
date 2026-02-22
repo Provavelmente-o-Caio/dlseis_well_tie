@@ -307,6 +307,27 @@ class Basic_well_tie:
     ):
         result = {}
 
+        def _to_serializable(obj):
+            """Convert numpy arrays and other objects to JSON-serializable types"""
+            if hasattr(obj, "tolist"):
+                return obj.tolist()
+            elif isinstance(obj, np.generic):
+                return float(obj)
+            elif isinstance(obj, (int, float, str, bool, type(None))):
+                return obj
+            elif isinstance(obj, dict):
+                return {k: _to_serializable(v) for k, v in obj.items()}
+            elif isinstance(obj, (list, tuple)):
+                return [_to_serializable(item) for item in obj]
+            else:
+                # Try to get values attribute if it's a grid object
+                if hasattr(obj, "values"):
+                    return _to_serializable(obj.values)
+                elif hasattr(obj, "basis"):
+                    return _to_serializable(obj.basis)
+                else:
+                    return str(obj)
+
         # Wavelet data
         wavelet = output.wavelet
         ff, ampl, _, phase = compute_spectrum(
@@ -315,73 +336,46 @@ class Basic_well_tie:
         ampl /= ampl.max()
 
         result["wavelet"] = {
-            "basis": wavelet.basis.tolist()
-            if hasattr(wavelet.basis, "tolist")
-            else wavelet.basis,
-            "values": wavelet.values.tolist()
-            if hasattr(wavelet.values, "tolist")
-            else wavelet.values,
+            "basis": _to_serializable(wavelet.basis),
+            "values": _to_serializable(wavelet.values),
             "sampling_rate": float(wavelet.sampling_rate),
-            "frequency": ff.tolist() if hasattr(ff, "tolist") else ff,
-            "amplitude": ampl.tolist() if hasattr(ampl, "tolist") else ampl,
-            "phase": phase.tolist() if hasattr(phase, "tolist") else phase,
+            "frequency": _to_serializable(ff),
+            "amplitude": _to_serializable(ampl),
+            "phase": _to_serializable(phase),
         }
 
         # Tie window data (synthetic seismic vs real seismic)
         result["tie_window"] = {
-            "ai": output.logset_twt.AI.tolist()
-            if hasattr(output.logset_twt.AI, "tolist")
-            else output.logset_twt.AI,
-            "r0": output.r.tolist() if hasattr(output.r, "tolist") else output.r,
-            "synthetic_seismic": output.synth_seismic.values.tolist()
-            if hasattr(output.synth_seismic.values, "tolist")
-            else output.synth_seismic.values,
-            "real_seismic": output.seismic.values.tolist()
-            if hasattr(output.seismic.values, "tolist")
-            else output.seismic.values,
-            "time_twt": output.synth_seismic.basis.tolist()
-            if hasattr(output.synth_seismic.basis, "tolist")
-            else output.synth_seismic.basis,
+            "ai": _to_serializable(output.logset_twt.ai),
+            "r0": _to_serializable(output.r.values),
+            "synthetic_seismic": _to_serializable(output.synth_seismic.values),
+            "real_seismic": _to_serializable(output.seismic.values),
+            "time_twt": _to_serializable(output.synth_seismic.basis),
         }
 
         # Time-Depth Table data
         result["td_table"] = {
             "original": {
-                "twt": self.td_table.twt.tolist()
-                if hasattr(self.td_table.twt, "tolist")
-                else self.td_table.twt,
-                "tvdss": self.td_table.tvdss.tolist()
-                if hasattr(self.td_table.tvdss, "tolist")
-                else self.td_table.tvdss,
+                "twt": _to_serializable(self.td_table.twt),
+                "tvdss": _to_serializable(self.td_table.tvdss),
             },
             "modified": {
-                "twt": output.table.twt.tolist()
-                if hasattr(output.table.twt, "tolist")
-                else output.table.twt,
-                "tvdss": output.table.tvdss.tolist()
-                if hasattr(output.table.tvdss, "tolist")
-                else output.table.tvdss,
+                "twt": _to_serializable(output.table.twt),
+                "tvdss": _to_serializable(output.table.tvdss),
             },
         }
 
         # Warping Path data
         result["warping_path"] = {
-            "dlags": output.dlags.values.tolist()
-            if hasattr(output.dlags.values, "tolist")
-            else output.dlags.values,
-            "time_twt": output.synth_seismic.basis.tolist()
-            if hasattr(output.synth_seismic.basis, "tolist")
-            else output.synth_seismic.basis,
+            "dlags": _to_serializable(output.dlags.values),
+            "time_twt": _to_serializable(output.synth_seismic.basis),
         }
 
         # Best parameters from optimization
         result["optimization"] = {
-            "best_parameters": {
-                k: float(v) if isinstance(v, (int, float, np.number)) else v
-                for k, v in best_parameters.items()
-            },
-            "means": means,
-            "covariances": covariances,
+            "best_parameters": _to_serializable(best_parameters),
+            "means": _to_serializable(means),
+            "covariances": _to_serializable(covariances),
         }
 
         # Export to JSON
