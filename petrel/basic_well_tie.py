@@ -30,24 +30,22 @@ class Basic_well_tie:
         output_path: str,
     ) -> None:
         with open(data_path, "r") as f:
-            data = json.load(f)
+            self.data = json.load(f)
 
         with open(config_path, "r") as f:
-            config = json.load(f)
+            self.config = json.load(f)
 
-        self.las_logs: LogSet = self.import_las_logs(logs_path, data, config)
+        self.las_logs: LogSet = self.import_las_logs(logs_path)
         self.seis: Seismic = self.import_seismic(seis_path)
-        self.path: WellPath = self.import_well_path(path_path, data, config)
-        self.td_table: TimeDepthTable = self.import_time_depth_table(
-            table_path, data, config
-        )
+        self.path: WellPath = self.import_well_path(path_path)
+        self.td_table: TimeDepthTable = self.import_time_depth_table(table_path)
         self.output_path = Path(output_path)
 
-    def import_las_logs(self, file_path, data, config) -> grid.LogSet:
+    def import_las_logs(self, file_path) -> grid.LogSet:
         file_path = Path(file_path)
 
-        log_data = data["Logs"]
-        configs = config["Logs"]
+        log_data = self.data["Logs"]
+        configs = self.config["Logs"]
 
         # Read file
         las_logs = lasio.read(file_path)
@@ -127,20 +125,20 @@ class Basic_well_tie:
             seis = np.squeeze(segyio.tools.cube(f))
         return grid.Seismic(seis, twt, "twt")
 
-    def import_well_path(self, path_path, data, config) -> grid.WellPath:
+    def import_well_path(self, path_path) -> grid.WellPath:
         file_path = Path(path_path)
-        configs = config["Path"]
+        configs = self.config["Path"]
 
         wp = pd.read_csv(
             file_path,
             header=1,
             delimiter=r"\s+",
-            usecols=range(1, len(data["Entire_Path"]) + 1),
-            names=data["Entire_Path"],
+            usecols=range(1, len(self.data["Entire_Path"]) + 1),
+            names=self.data["Entire_Path"],
             engine="python",
         )
 
-        depth, inclination = data["Path"][0], data["Path"][1]
+        depth, inclination = self.data["Path"][0], self.data["Path"][1]
 
         # md = np.concatenate((np.zeros((1,)), wp.loc[:, depth].values))
         # dev = np.concatenate((np.zeros((1,)), wp.loc[:, inclination].values[:-1]))
@@ -164,9 +162,9 @@ class Basic_well_tie:
 
         return grid.WellPath(md=md, tvdss=tvd, kb=kb)
 
-    def import_time_depth_table(self, table_path, data, config) -> grid.TimeDepthTable:
+    def import_time_depth_table(self, table_path) -> grid.TimeDepthTable:
         file_path = Path(table_path)
-        configs = config["Table"]
+        configs = self.config["Table"]
 
         file_extension = file_path.suffix.lower()
 
@@ -178,14 +176,14 @@ class Basic_well_tie:
                 header=None,
                 sep=r"\s+",
                 skiprows=[0, 1],
-                names=data["Entire_Table"],
+                names=self.data["Entire_Table"],
             )
 
         if bool(configs["isOWT"]):
-            twt = td.loc[:, data["Table"][0]].values * 2  # owt to twt
+            twt = td.loc[:, self.data["Table"][0]].values * 2  # owt to twt
         else:
-            twt = td.loc[:, data["Table"][0]].values
-        tvdss = td.loc[:, data["Table"][1]].values
+            twt = td.loc[:, self.data["Table"][0]].values
+        tvdss = td.loc[:, self.data["Table"][1]].values
         # remove nans
         good_idx = np.where(~np.isnan(twt))[0]
         twt = twt[good_idx]
@@ -230,28 +228,52 @@ class Basic_well_tie:
 
         modeler = tutorial.get_modeling_tool()
 
+        search_space_config = self.config["search_space"]
+        search_params_config = self.config["search_paramns"]
+        wavelet_scaling_config = self.config["wavelet_scaling"]
+        strech_and_squeeze_config = self.config["strech_and_squeeze"]
+
         median_length_choice = dict(
             name="logs_median_size",
             type="choice",
-            values=[i for i in range(11, 63, 2)],
+            values=[
+                i
+                for i in range(
+                    search_space_config["median_length_min"],
+                    search_space_config["median_length_max"] + 1,
+                    2,
+                )
+            ],
             value_type="int",
         )
 
         median_th_choice = dict(
             name="logs_median_threshold",
             type="range",
-            bounds=[0.1, 5.5],
+            bounds=[
+                search_space_config["median_th_min"],
+                search_space_config["median_th_max"],
+            ],
             value_type="float",
         )
 
         std_choice = dict(
-            name="logs_std", type="range", bounds=[0.5, 5.5], value_type="float"
+            name="logs_std",
+            type="range",
+            bounds=[
+                search_space_config["std_choice_min"],
+                search_space_config["std_choice_max"],
+            ],
+            value_type="float",
         )
 
         table_t_shift_choice = dict(
             name="table_t_shift",
             type="range",
-            bounds=[-0.012, 0.012],
+            bounds=[
+                search_space_config["table_t_shift_choice_min"],
+                search_space_config["table_t_shift_max"],
+            ],
             value_type="float",
         )
 
@@ -262,10 +284,15 @@ class Basic_well_tie:
             table_t_shift_choice,
         ]
 
-        search_params = dict(num_iters=80, similarity_std=0.02)
+        search_params = dict(
+            num_iters=search_params_config["num_iters"],
+            similarity_std=search_params_config["similarity_std"],
+        )
 
         wavelet_scaling_params = dict(
-            wavelet_min_scale=50000, wavelet_max_scale=500000, num_iters=60
+            wavelet_min_scale=wavelet_scaling_config["wavelet_min_scale"],
+            wavelet_max_scale=wavelet_scaling_config["wavelet_max_scale"],
+            num_iters=wavelet_scaling_config["num_iters"],
         )
 
         outputs = autotie.tie_v1(
@@ -281,7 +308,10 @@ class Basic_well_tie:
         best_parameters, values = outputs.ax_client.get_best_parameters()
         means, covariances = values
 
-        s_and_s_params = dict(window_length=0.060, max_lag=0.010)  # in seconds
+        s_and_s_params = dict(
+            window_length=strech_and_squeeze_config["window_length"],
+            max_lag=strech_and_squeeze_config["max_lag"],
+        )  # in seconds
 
         outputs2 = autotie.stretch_and_squeeze(
             inputs,
