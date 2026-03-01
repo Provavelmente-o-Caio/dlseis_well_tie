@@ -378,14 +378,19 @@ class Basic_well_tie:
             "covariances": _to_serializable(covariances),
         }
 
+        result["dxcorr"] = {
+            "values": _to_serializable(output.dxcorr.values),
+            "basis": _to_serializable(output.dxcorr.basis),
+            "lags_basis": _to_serializable(output.dxcorr.lags_basis),
+        }
+
         # Export to JSON
-        output_file = output_path / "well_tie_results.json"
-        output_file.parent.mkdir(parents=True, exist_ok=True)
+        output_file = output_path
 
         with open(output_file, "w") as f:
             json.dump(result, f, indent=2)
 
-        print(f"RESULTS_JSON:{output_file.name}")
+        print(f"RESULTS_JSON:{output_file}")
 
     def convert_to_mps(self, values, unit: str):
         """

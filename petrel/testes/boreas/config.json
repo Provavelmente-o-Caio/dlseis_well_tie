@@ -1,8 +1,8 @@
 {
   "Logs": {
     "las_unit": "us/ft",
-    "Start_range": "6050",
-    "End_range": "60"
+    "Start_range": "7650",
+    "End_range": "70"
   },
   "Path": {
     "datum": "0"
