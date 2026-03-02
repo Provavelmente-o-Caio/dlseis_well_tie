@@ -228,10 +228,10 @@ class Basic_well_tie:
 
         modeler = tutorial.get_modeling_tool()
 
-        search_space_config = self.config["search_space"]
-        search_params_config = self.config["search_paramns"]
-        wavelet_scaling_config = self.config["wavelet_scaling"]
-        strech_and_squeeze_config = self.config["strech_and_squeeze"]
+        search_space_config = self.config["SearchSpace"]
+        search_params_config = self.config["SearchParams"]
+        wavelet_scaling_config = self.config["WaveletScaling"]
+        strech_and_squeeze_config = self.config["StretchAndSqueeze"]
 
         median_length_choice = dict(
             name="logs_median_size",
@@ -261,8 +261,8 @@ class Basic_well_tie:
             name="logs_std",
             type="range",
             bounds=[
-                search_space_config["std_choice_min"],
-                search_space_config["std_choice_max"],
+                search_space_config["std_min"],
+                search_space_config["std_max"],
             ],
             value_type="float",
         )
@@ -271,7 +271,7 @@ class Basic_well_tie:
             name="table_t_shift",
             type="range",
             bounds=[
-                search_space_config["table_t_shift_choice_min"],
+                search_space_config["table_t_shift_min"],
                 search_space_config["table_t_shift_max"],
             ],
             value_type="float",
