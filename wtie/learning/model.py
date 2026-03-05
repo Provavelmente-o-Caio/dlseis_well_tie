@@ -745,7 +745,7 @@ class VariationalEvaluator(BaseEvaluator):
 
             wavelet = self.net.compute_expected_wavelet(seismic, reflectivity)
 
-            wavelet = wavelet.cpu().data.numpy()
+            wavelet = wavelet.cpu().detach().numpy()
         if squeeze:
             wavelet = np.squeeze(wavelet)
 
@@ -767,7 +767,7 @@ class VariationalEvaluator(BaseEvaluator):
             reflectivity = reflectivity.to(self.device)
             wavelet = self.net.sample(seismic, reflectivity)
 
-            wavelet = wavelet.cpu().data.numpy()
+            wavelet = wavelet.cpu().detach().numpy()
 
         if squeeze:
             wavelet = np.squeeze(wavelet)
@@ -794,7 +794,7 @@ class VariationalEvaluator(BaseEvaluator):
 
             for _ in range(n):
                 wavelet_i = self.net.sample(seismic, reflectivity)
-                wavelet_i = wavelet_i.cpu().data.numpy()
+                wavelet_i = wavelet_i.cpu().detach().numpy()
 
                 if squeeze:
                     wavelet_i = np.squeeze(wavelet_i)
@@ -833,7 +833,7 @@ class Evaluator(BaseEvaluator):
             reflectivity = reflectivity.to(self.device)
             wavelet = self.net(seismic, reflectivity)
 
-            wavelet = wavelet.cpu().data.numpy()
+            wavelet = wavelet.cpu().detach().numpy()
 
         if squeeze:
             wavelet = np.squeeze(wavelet)
