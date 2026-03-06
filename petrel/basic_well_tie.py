@@ -9,6 +9,8 @@ import segyio
 import yaml
 
 from wtie import autotie, grid
+from wtie.learning.network import VariationalNetwork, Network
+from wtie.learning.model import VariationalEvaluator, BaseEvaluator, Evaluator
 from wtie.processing.grid import LogSet, Seismic, TimeDepthTable, WellPath
 from wtie.processing.logs import interpolate_nans
 from wtie.processing.spectral import compute_spectrum
@@ -194,19 +196,19 @@ class Basic_well_tie:
 
         return grid.TimeDepthTable(twt=twt, tvdss=tvdss)
 
-    def import_seismic_trace(self, file_path: str, trace_idx: int = 0) -> grid.Seismic:
-        """
-        Importa um arquivo SEGY e retorna apenas um traço específico como grid.Seismic.
-        TODO: Melhorar a importação para lidar com diferentes formatos de SEGY (1D/2D/3D).
-        """
-        file_path = Path(file_path)
-        with segyio.open(file_path, "r", ignore_geometry=True) as f:
-            twt = f.samples / 1000  # ms para s
-            trace = f.trace[trace_idx]  # pega o traço desejado
+    # def import_seismic_trace(self, file_path: str, trace_idx: int = 0) -> grid.Seismic:
+    #     """
+    #     Importa um arquivo SEGY e retorna apenas um traço específico como grid.Seismic.
+    #     TODO: Melhorar a importação para lidar com diferentes formatos de SEGY (1D/2D/3D).
+    #     """
+    #     file_path = Path(file_path)
+    #     with segyio.open(file_path, "r", ignore_geometry=True) as f:
+    #         twt = f.samples / 1000  # ms para s
+    #         trace = f.trace[trace_idx]  # pega o traço desejado
 
-        return grid.Seismic(
-            trace, twt, "twt", name=f"{file_path.stem}_trace{trace_idx}"
-        )
+    #     return grid.Seismic(
+    #         trace, twt, "twt", name=f"{file_path.stem}_trace{trace_idx}"
+    #     )
 
     def well_tie(self):
         inputs = InputSet(
@@ -215,6 +217,11 @@ class Basic_well_tie:
             wellpath=self.path,
             table=self.td_table,
         )
+        search_space_config = self.config["SearchSpace"]
+        search_params_config = self.config["SearchParams"]
+        wavelet_scaling_config = self.config["WaveletScaling"]
+        strech_and_squeeze_config = self.config["StretchAndSqueeze"]
+        model_config = self.config["Model"]
 
         model_state_dict = Path("../data/tutorial/trained_net_state_dict.pt")
         assert model_state_dict.is_file()
@@ -222,16 +229,11 @@ class Basic_well_tie:
         with open(Path("../data/tutorial/network_parameters.yaml"), "r") as yaml_file:
             training_parameters = yaml.load(yaml_file, Loader=yaml.Loader)
 
-        wavelet_extractor = tutorial.load_wavelet_extractor(
-            training_parameters, model_state_dict
+        wavelet_extractor = self.load_wavelet_extractor(
+            training_parameters, model_state_dict, model_config["chosen_network"]
         )
 
         modeler = tutorial.get_modeling_tool()
-
-        search_space_config = self.config["SearchSpace"]
-        search_params_config = self.config["SearchParams"]
-        wavelet_scaling_config = self.config["WaveletScaling"]
-        strech_and_squeeze_config = self.config["StretchAndSqueeze"]
 
         median_length_choice = dict(
             name="logs_median_size",
@@ -421,6 +423,24 @@ class Basic_well_tie:
             json.dump(result, f, indent=2)
 
         print(f"RESULTS_JSON:{output_file}")
+
+    def load_wavelet_extractor(self, training_parameters: dict, network_state_dict: Path, chosen_network: str):
+        # instantiate neural network and evaluator
+        output_size = training_parameters['synthetic_dataset']['wavelet']['wavelet_size']
+        expected_sampling_rate = training_parameters['synthetic_dataset']['dt']
+
+        match chosen_network:
+            case "variational":
+                net = VariationalEvaluator(output_size, training_parameters['network_parameters'])
+                evaluator = VariationalEvaluator(network=net, expected_sampling=expected_sampling_rate, state_dict=network_state_dict)
+            case "convolutional":
+                net = Network(output_size, training_parameters['network_parameters']) 
+                evaluator = Evaluator(network=net, expected_sampling=expected_sampling_rate, state_dict=network_state_dict)
+            case _:
+                raise ValueError(f"Unsupported network type: {chosen_network}")
+        
+        return evaluator
+
 
     def convert_to_mps(self, values, unit: str):
         """

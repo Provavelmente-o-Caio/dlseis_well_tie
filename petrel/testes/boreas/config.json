@@ -10,5 +10,28 @@
   "Table": {
     "isOWT": true,
     "Unit": "m"
+  },
+    "SearchSpace": {
+    "median_length_min": 11,
+    "median_length_max": 63,
+    "median_th_min": 0.1,
+    "median_th_max": 5.5,
+    "std_min": 0.5,
+    "std_max": 5.5,
+    "table_t_shift_min": -0.012,
+    "table_t_shift_max": 0.012
+  },
+  "SearchParams": {
+    "num_iters": 80,
+    "similarity_std": 0.02
+  },
+  "WaveletScaling": {
+    "wavelet_min_scale": 50000,
+    "wavelet_max_scale": 500000,
+    "num_iters": 60
+  },
+  "StretchAndSqueeze": {
+    "window_length": 0.060,
+    "max_lag": 0.010
   }
 }
