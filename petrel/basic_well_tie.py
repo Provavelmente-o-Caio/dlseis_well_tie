@@ -431,10 +431,10 @@ class Basic_well_tie:
 
         match chosen_network:
             case "variational":
-                net = VariationalEvaluator(output_size, training_parameters['network_parameters'])
+                net = VariationalNetwork(output_size, training_parameters['network']['network_kwargs'])
                 evaluator = VariationalEvaluator(network=net, expected_sampling=expected_sampling_rate, state_dict=network_state_dict)
             case "convolutional":
-                net = Network(output_size, training_parameters['network_parameters']) 
+                net = Network(output_size, training_parameters['network']['network_kwargs']) 
                 evaluator = Evaluator(network=net, expected_sampling=expected_sampling_rate, state_dict=network_state_dict)
             case _:
                 raise ValueError(f"Unsupported network type: {chosen_network}")
