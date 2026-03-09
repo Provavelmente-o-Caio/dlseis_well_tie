@@ -1,4 +1,5 @@
 """Some functions to perform auto well-tie."""
+
 import inspect
 
 from tqdm import tqdm
@@ -28,51 +29,55 @@ INTERMEDIATE_ZERO_PHASING: bool = True
 INTERMEDIATE_EXPECTED_VALUE: bool = True
 
 
-def stretch_and_squeeze(inputs: InputSet,
-                        current_outputs: OutputSet,
-                        wavelet_extractor: wtie.learning.model.BaseEvaluator,
-                        modeler: wtie.modeling.modeling.ModelingCallable,
-                        wavelet_scaling_params: dict,
-                        best_params: dict,
-                        stretch_and_squeeze_params: dict
-                        ):
+def stretch_and_squeeze(
+    inputs: InputSet,
+    current_outputs: OutputSet,
+    wavelet_extractor: wtie.learning.model.BaseEvaluator,
+    modeler: wtie.modeling.modeling.ModelingCallable,
+    wavelet_scaling_params: dict,
+    best_params: dict,
+    stretch_and_squeeze_params: dict,
+):
 
     from_seismic = current_outputs.seismic
     to_seismic = current_outputs.synth_seismic
 
     if inputs.seismic.is_prestack:
         first_angle = from_seismic.angles[0]
-        ref_angle = stretch_and_squeeze_params.get(
-            'reference_angle', first_angle)
-        stretch_and_squeeze_params.pop('reference_angle', None)
+        ref_angle = stretch_and_squeeze_params.get("reference_angle", first_angle)
+        stretch_and_squeeze_params.pop("reference_angle", None)
         from_seismic = from_seismic[ref_angle]
         to_seismic = to_seismic[ref_angle]
 
-    dlags = _warping.compute_dynamic_lag(from_seismic,
-                                         to_seismic,
-                                         **stretch_and_squeeze_params)
+    dlags = _warping.compute_dynamic_lag(
+        from_seismic, to_seismic, **stretch_and_squeeze_params
+    )
 
     warped_table = _warping.apply_lags_to_table(current_outputs.table, dlags)
 
-    outputs = _intermediate_tie_v1(inputs.logset_md,
-                                   inputs.wellpath,
-                                   warped_table,
-                                   inputs.seismic,
-                                   wavelet_extractor,
-                                   modeler,
-                                   best_params)
+    outputs = _intermediate_tie_v1(
+        inputs.logset_md,
+        inputs.wellpath,
+        warped_table,
+        inputs.seismic,
+        wavelet_extractor,
+        modeler,
+        best_params,
+    )
 
     outputs.dlags = dlags
 
     # Final wavelet
-    wavelet = _tie.compute_wavelet(outputs.seismic,
-                                   outputs.r,
-                                   modeler,
-                                   wavelet_extractor,
-                                   zero_phasing=False,
-                                   scaling=True,
-                                   expected_value=False,
-                                   scaling_params=wavelet_scaling_params)
+    wavelet = _tie.compute_wavelet(
+        outputs.seismic,
+        outputs.r,
+        modeler,
+        wavelet_extractor,
+        zero_phasing=False,
+        scaling=True,
+        expected_value=False,
+        scaling_params=wavelet_scaling_params,
+    )
     # final synth
     synth_seismic = _tie.compute_synthetic_seismic(modeler, wavelet, outputs.r)
 
@@ -82,14 +87,17 @@ def stretch_and_squeeze(inputs: InputSet,
 
     # similarity
     if not inputs.seismic.is_prestack:
-        xcorr = _similarity.traces_normalized_xcorr(outputs.seismic,
-                                                    outputs.synth_seismic)
+        xcorr = _similarity.traces_normalized_xcorr(
+            outputs.seismic, outputs.synth_seismic
+        )
         xcorr = grid.resample_trace(xcorr, 0.001)
-        dxcorr = _similarity.dynamic_normalized_xcorr(outputs.seismic,
-                                                      outputs.synth_seismic)
+        dxcorr = _similarity.dynamic_normalized_xcorr(
+            outputs.seismic, outputs.synth_seismic
+        )
     else:
-        xcorr = _similarity.prestack_traces_normalized_xcorr(outputs.seismic,
-                                                             outputs.synth_seismic)
+        xcorr = _similarity.prestack_traces_normalized_xcorr(
+            outputs.seismic, outputs.synth_seismic
+        )
         xcorr = grid.resample_trace(xcorr, 0.001)
         dxcorr = None
 
@@ -99,14 +107,15 @@ def stretch_and_squeeze(inputs: InputSet,
     return outputs
 
 
-def tie_v1(inputs: InputSet,
-           wavelet_extractor: wtie.learning.model.BaseEvaluator,
-           modeler: wtie.modeling.modeling.ModelingCallable,
-           wavelet_scaling_params: dict,
-           search_params: dict = None,
-           search_space: dict = None,
-           stretch_and_squeeze_params: dict = None,
-           ) -> OutputSet:
+def tie_v1(
+    inputs: InputSet,
+    wavelet_extractor: wtie.learning.model.BaseEvaluator,
+    modeler: wtie.modeling.modeling.ModelingCallable,
+    wavelet_scaling_params: dict,
+    search_params: dict = None,
+    search_space: dict = None,
+    stretch_and_squeeze_params: dict = None,
+) -> OutputSet:
     """
     Utility to perform automatic (prestack) seismic to well tie. This version 1
     serves as a base recipe. Feel free to implement your own recipe using the
@@ -150,46 +159,35 @@ def tie_v1(inputs: InputSet,
     # at this point, the wavelet is zero-phased
     if search_params is None:
         search_params = {}
-    num_iters = search_params.get('num_iters', 80)
-    similarity_std = search_params.get('similarity_std', 0.01)
-    random_ratio = search_params.get('random_ratio', 0.6)
+    num_iters = search_params.get("num_iters", 80)
+    similarity_std = search_params.get("similarity_std", 0.01)
+    random_ratio = search_params.get("random_ratio", 0.6)
 
-    print("stage 0")
-    for obj in gc.get_objects():
-        if torch.is_tensor(obj):
-            print(f"Tensor Details:\n"
-                  f"- Size: {obj.size()}\n"
-                  f"- Device: {obj.device}\n"
-                  f"- Type: {type(obj)}\n")
-
-    ax_client = _search_best_params_v1(inputs,
-                                       wavelet_extractor,
-                                       modeler,
-                                       search_space,
-                                       num_iters,
-                                       random_ratio,
-                                       similarity_std)
+    ax_client = _search_best_params_v1(
+        inputs,
+        wavelet_extractor,
+        modeler,
+        search_space,
+        num_iters,
+        random_ratio,
+        similarity_std,
+    )
     best_params = ax_client.get_best_parameters()[0]
 
-    print("stage 1")
-    for obj in gc.get_objects():
-        if torch.is_tensor(obj):
-            print(f"Tensor Details:\n"
-                  f"- Size: {obj.size()}\n"
-                  f"- Device: {obj.device}\n"
-                  f"- Type: {type(obj)}\n")
     # Intermediate tie
-    shifted_table = grid.TimeDepthTable.t_bulk_shift(inputs.table,
-                                                     best_params['table_t_shift']
-                                                     )
+    shifted_table = grid.TimeDepthTable.t_bulk_shift(
+        inputs.table, best_params["table_t_shift"]
+    )
 
-    outputs_tmp1 = _intermediate_tie_v1(inputs.logset_md,
-                                        inputs.wellpath,
-                                        shifted_table,
-                                        inputs.seismic,
-                                        wavelet_extractor,
-                                        modeler,
-                                        best_params)
+    outputs_tmp1 = _intermediate_tie_v1(
+        inputs.logset_md,
+        inputs.wellpath,
+        shifted_table,
+        inputs.seismic,
+        wavelet_extractor,
+        modeler,
+        best_params,
+    )
 
     # Optional stretch and squeeze
     if stretch_and_squeeze_params is not None:
@@ -197,58 +195,45 @@ def tie_v1(inputs: InputSet,
         to_seismic = outputs_tmp1.synth_seismic
         if outputs_tmp1.seismic.is_prestack:
             first_angle = from_seismic.angles[0]
-            ref_angle = stretch_and_squeeze_params.get(
-                'reference_angle', first_angle)
-            stretch_and_squeeze_params.pop('reference_angle', None)
+            ref_angle = stretch_and_squeeze_params.get("reference_angle", first_angle)
+            stretch_and_squeeze_params.pop("reference_angle", None)
             from_seismic = from_seismic[ref_angle]
             to_seismic = to_seismic[ref_angle]
 
-        dlags = _warping.compute_dynamic_lag(from_seismic,
-                                             to_seismic,
-                                             **stretch_and_squeeze_params)
+        dlags = _warping.compute_dynamic_lag(
+            from_seismic, to_seismic, **stretch_and_squeeze_params
+        )
 
         warped_table = _warping.apply_lags_to_table(outputs_tmp1.table, dlags)
 
-        outputs_tmp2 = _intermediate_tie_v1(inputs.logset_md,
-                                            inputs.wellpath,
-                                            warped_table,
-                                            inputs.seismic,
-                                            wavelet_extractor,
-                                            modeler,
-                                            best_params)
+        outputs_tmp2 = _intermediate_tie_v1(
+            inputs.logset_md,
+            inputs.wellpath,
+            warped_table,
+            inputs.seismic,
+            wavelet_extractor,
+            modeler,
+            best_params,
+        )
 
         outputs_tmp2.dlags = dlags
 
     else:
         outputs_tmp2 = outputs_tmp1
 
-    print("stage 2")
-    for obj in gc.get_objects():
-        if torch.is_tensor(obj):
-            print(f"Tensor Details:\n"
-                  f"- Size: {obj.size()}\n"
-                  f"- Device: {obj.device}\n"
-                  f"- Type: {type(obj)}\n")
     # Final wavelet
-    wavelet = _tie.compute_wavelet(outputs_tmp2.seismic,
-                                   outputs_tmp2.r,
-                                   modeler,
-                                   wavelet_extractor,
-                                   zero_phasing=False,
-                                   scaling=True,
-                                   expected_value=False,
-                                   scaling_params=wavelet_scaling_params)
+    wavelet = _tie.compute_wavelet(
+        outputs_tmp2.seismic,
+        outputs_tmp2.r,
+        modeler,
+        wavelet_extractor,
+        zero_phasing=False,
+        scaling=True,
+        expected_value=False,
+        scaling_params=wavelet_scaling_params,
+    )
 
-    print("stage 3")
-    for obj in gc.get_objects():
-        if torch.is_tensor(obj):
-            print(f"Tensor Details:\n"
-                  f"- Size: {obj.size()}\n"
-                  f"- Device: {obj.device}\n"
-                  f"- Type: {type(obj)}\n")
-    # Final synthetic
-    synth_seismic = _tie.compute_synthetic_seismic(
-        modeler, wavelet, outputs_tmp2.r)
+    synth_seismic = _tie.compute_synthetic_seismic(modeler, wavelet, outputs_tmp2.r)
 
     # overwrite w/ new data
     outputs_tmp2.ax_client = ax_client
@@ -257,14 +242,17 @@ def tie_v1(inputs: InputSet,
 
     # Similarity between synthetic and real seismic
     if not inputs.seismic.is_prestack:
-        xcorr = _similarity.traces_normalized_xcorr(outputs_tmp2.seismic,
-                                                    outputs_tmp2.synth_seismic)
+        xcorr = _similarity.traces_normalized_xcorr(
+            outputs_tmp2.seismic, outputs_tmp2.synth_seismic
+        )
         xcorr = grid.resample_trace(xcorr, 0.001)
-        dxcorr = _similarity.dynamic_normalized_xcorr(outputs_tmp2.seismic,
-                                                      outputs_tmp2.synth_seismic)
+        dxcorr = _similarity.dynamic_normalized_xcorr(
+            outputs_tmp2.seismic, outputs_tmp2.synth_seismic
+        )
     else:
-        xcorr = _similarity.prestack_traces_normalized_xcorr(outputs_tmp2.seismic,
-                                                             outputs_tmp2.synth_seismic)
+        xcorr = _similarity.prestack_traces_normalized_xcorr(
+            outputs_tmp2.seismic, outputs_tmp2.synth_seismic
+        )
         xcorr = grid.resample_trace(xcorr, 0.001)
         dxcorr = None
 
@@ -274,55 +262,55 @@ def tie_v1(inputs: InputSet,
     return outputs_tmp2
 
 
-def _intermediate_tie_v1(logset_md: grid.LogSet,
-                         wellpath: grid.WellPath,
-                         table: grid.TimeDepthTable,
-                         seismic: grid.Seismic,
-                         wavelet_extractor: wtie.learning.model.BaseEvaluator,
-                         modeler: wtie.modeling.modeling.ModelingCallable,
-                         parameters: dict
-                         ) -> OutputSet:
+def _intermediate_tie_v1(
+    logset_md: grid.LogSet,
+    wellpath: grid.WellPath,
+    table: grid.TimeDepthTable,
+    seismic: grid.Seismic,
+    wavelet_extractor: wtie.learning.model.BaseEvaluator,
+    modeler: wtie.modeling.modeling.ModelingCallable,
+    parameters: dict,
+) -> OutputSet:
     # Resampling
-    seismic = _tie.resample_seismic(
-        seismic, wavelet_extractor.expected_sampling)
+    seismic = _tie.resample_seismic(seismic, wavelet_extractor.expected_sampling)
 
     # Common steps
-    logset_twt, seis_match, r_match = \
-        _common_steps_tie_v1(logset_md,
-                             wellpath,
-                             table,
-                             seismic,
-                             wavelet_extractor,
-                             modeler,
-                             parameters)
+    logset_twt, seis_match, r_match = _common_steps_tie_v1(
+        logset_md, wellpath, table, seismic, wavelet_extractor, modeler, parameters
+    )
 
     # (Zero-phased) unscaled wavelet
-    wlt = _tie.compute_wavelet(seis_match, r_match,
-                               modeler, wavelet_extractor,
-                               zero_phasing=INTERMEDIATE_ZERO_PHASING,
-                               scaling=False, expected_value=False)
+    wlt = _tie.compute_wavelet(
+        seis_match,
+        r_match,
+        modeler,
+        wavelet_extractor,
+        zero_phasing=INTERMEDIATE_ZERO_PHASING,
+        scaling=False,
+        expected_value=False,
+    )
 
     synth_seismic = _tie.compute_synthetic_seismic(modeler, wlt, r_match)
 
-    return OutputSet(wlt, logset_twt, seis_match, synth_seismic,
-                     wellpath, table, r_match)
+    return OutputSet(
+        wlt, logset_twt, seis_match, synth_seismic, wellpath, table, r_match
+    )
 
 
-def _search_best_params_v1(inputs: InputSet,
-                           wavelet_extractor: wtie.learning.model.BaseEvaluator,
-                           modeler: wtie.modeling.modeling.ModelingCallable,
-                           search_space: dict,
-                           num_iters: int,
-                           random_ratio: float,
-                           similarity_std: float
-                           ) -> _optimizer.AxClient:
+def _search_best_params_v1(
+    inputs: InputSet,
+    wavelet_extractor: wtie.learning.model.BaseEvaluator,
+    modeler: wtie.modeling.modeling.ModelingCallable,
+    search_space: dict,
+    num_iters: int,
+    random_ratio: float,
+    similarity_std: float,
+) -> _optimizer.AxClient:
     # Resampling
-    seismic = _tie.resample_seismic(
-        inputs.seismic, wavelet_extractor.expected_sampling)
+    seismic = _tie.resample_seismic(inputs.seismic, wavelet_extractor.expected_sampling)
 
     # Optim client
-    ax_client = _optimizer.create_ax_client(
-        num_iters, random_ratio=random_ratio)
+    ax_client = _optimizer.create_ax_client(num_iters, random_ratio=random_ratio)
 
     # Create experiment: prefer new AxClient signature (`objectives`),
     # fall back to older `objective_name`/`minimize` kwargs if necessary.
@@ -352,65 +340,74 @@ def _search_best_params_v1(inputs: InputSet,
         try:
             h_params, trial_index = ax_client.get_next_trial()
         except RuntimeError:  # NotPSDError:
-            print("Early stopping after %d/%d iterations." % (i+1, num_iters))
+            print("Early stopping after %d/%d iterations." % (i + 1, num_iters))
             break
 
         # table
-        current_table = grid.TimeDepthTable.t_bulk_shift(inputs.table,
-                                                         h_params['table_t_shift'])
+        current_table = grid.TimeDepthTable.t_bulk_shift(
+            inputs.table, h_params["table_t_shift"]
+        )
         # common steps
-        logset_twt, seis_match, r_match = \
-            _common_steps_tie_v1(inputs.logset_md,
-                                 inputs.wellpath,
-                                 current_table,
-                                 seismic,
-                                 wavelet_extractor,
-                                 modeler,
-                                 h_params)
+        logset_twt, seis_match, r_match = _common_steps_tie_v1(
+            inputs.logset_md,
+            inputs.wellpath,
+            current_table,
+            seismic,
+            wavelet_extractor,
+            modeler,
+            h_params,
+        )
 
         # (zero-phased) unscaled wavelet
-        current_wlt = _tie.compute_wavelet(seis_match, r_match, modeler,
-                                           wavelet_extractor,
-                                           zero_phasing=INTERMEDIATE_ZERO_PHASING,
-                                           scaling=False,
-                                           expected_value=INTERMEDIATE_EXPECTED_VALUE)
+        current_wlt = _tie.compute_wavelet(
+            seis_match,
+            r_match,
+            modeler,
+            wavelet_extractor,
+            zero_phasing=INTERMEDIATE_ZERO_PHASING,
+            scaling=False,
+            expected_value=INTERMEDIATE_EXPECTED_VALUE,
+        )
 
         # synthetic seismic
-        synth_seismic = _tie.compute_synthetic_seismic(
-            modeler, current_wlt, r_match)
+        synth_seismic = _tie.compute_synthetic_seismic(modeler, current_wlt, r_match)
 
         # similarity
         current_score = _similarity.central_xcorr_coeff(
             _tie.resample_seismic(seis_match, _tie.FINE_DT),
-            _tie.resample_seismic(synth_seismic, _tie.FINE_DT)
+            _tie.resample_seismic(synth_seismic, _tie.FINE_DT),
         )
 
-        ax_client.complete_trial(trial_index=trial_index,
-                                 raw_data=(current_score, similarity_std))
+        ax_client.complete_trial(
+            trial_index=trial_index, raw_data=(current_score, similarity_std)
+        )
 
     return ax_client
 
 
-def _common_steps_tie_v1(logset_md: grid.LogSet,
-                         wellpath: grid.WellPath,
-                         table: grid.TimeDepthTable,
-                         seismic: grid.seismic_t,
-                         wavelet_extractor: wtie.learning.model.BaseEvaluator,
-                         modeler: wtie.modeling.modeling.ModelingCallable,
-                         params: dict):
+def _common_steps_tie_v1(
+    logset_md: grid.LogSet,
+    wellpath: grid.WellPath,
+    table: grid.TimeDepthTable,
+    seismic: grid.seismic_t,
+    wavelet_extractor: wtie.learning.model.BaseEvaluator,
+    modeler: wtie.modeling.modeling.ModelingCallable,
+    params: dict,
+):
 
     # log filtering
-    logset_md = _tie.filter_md_logs(logset_md,
-                                    median_size=params['logs_median_size'],
-                                    threshold=params['logs_median_threshold'],
-                                    std=params['logs_std'],
-                                    std2=.8*params['logs_std'])
+    logset_md = _tie.filter_md_logs(
+        logset_md,
+        median_size=params["logs_median_size"],
+        threshold=params["logs_median_threshold"],
+        std=params["logs_std"],
+        std2=0.8 * params["logs_std"],
+    )
 
     # convertion
-    logset_twt = _tie.convert_logs_from_md_to_twt(logset_md,
-                                                  wellpath,
-                                                  table,
-                                                  wavelet_extractor.expected_sampling)
+    logset_twt = _tie.convert_logs_from_md_to_twt(
+        logset_md, wellpath, table, wavelet_extractor.expected_sampling
+    )
 
     # reflectivity
     r0 = _tie.compute_reflectivity(logset_twt, angle_range=seismic.angle_range)
@@ -434,21 +431,32 @@ def get_default_search_space_v1():
 
     Parameters are defined following the [Ax](https://github.com/facebook/Ax)
     documentation."""
-    median_length_choice = dict(name="logs_median_size", type="choice",
-                                values=[i for i in range(11, 73, 2)], value_type="int")
+    median_length_choice = dict(
+        name="logs_median_size",
+        type="choice",
+        values=[i for i in range(11, 73, 2)],
+        value_type="int",
+    )
 
-    median_th_choice = dict(name="logs_median_threshold", type="range",
-                            bounds=[0.1, 5.5], value_type="float")
+    median_th_choice = dict(
+        name="logs_median_threshold",
+        type="range",
+        bounds=[0.1, 5.5],
+        value_type="float",
+    )
 
-    std_choice = dict(name="logs_std", type="range",
-                      bounds=[0.5, 6.5], value_type="float")
+    std_choice = dict(
+        name="logs_std", type="range", bounds=[0.5, 6.5], value_type="float"
+    )
 
-    table_t_shift_choice = dict(name="table_t_shift", type="range",
-                                bounds=[-0.012, 0.012], value_type="float")
+    table_t_shift_choice = dict(
+        name="table_t_shift", type="range", bounds=[-0.012, 0.012], value_type="float"
+    )
 
-    search_space = [median_length_choice,
-                    median_th_choice,
-                    std_choice,
-                    table_t_shift_choice,
-                    ]
+    search_space = [
+        median_length_choice,
+        median_th_choice,
+        std_choice,
+        table_t_shift_choice,
+    ]
     return search_space
